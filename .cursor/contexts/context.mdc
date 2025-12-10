@@ -1,0 +1,56 @@
+---
+alwaysApply: true
+---
+
+Generate a React + TypeScript + Tailwind page for **Today's Appointments & Queue**.
+
+### Requirements
+
+- Component name: `TodayAppointmentsPage`.
+
+- Layout:
+  - Header with title: "Today's Appointments"
+  - Two main sections (responsive):
+    - Left: list/table of appointments for today.
+    - Right: "Queue View" showing status in a more visual way (for receptionist).
+
+- Data:
+  - Fetch from `GET /api/v1/appointments/today`.
+  - Each appointment item includes:
+    - id
+    - patientName
+    - dentistName
+    - startTime
+    - endTime
+    - status (BOOKED, ARRIVED, IN_TREATMENT, DONE, NO_SHOW, CANCELLED)
+    - chairNumber (optional)
+
+- Features:
+
+  1. **Filter by dentist & status**
+     - Dropdown to filter by dentist (e.g. "All dentists", "Dr. A", "Dr. B").
+     - Dropdown or pills to filter by status.
+
+  2. **Appointment table**
+     - Columns: time range, patientName, dentistName, chairNumber, status, actions.
+     - Action button to change status (e.g. BOOKED → ARRIVED → IN_TREATMENT → DONE).
+     - On status change, call `PATCH /api/v1/appointments/:id/status` with the new status and optimistically update UI.
+
+  3. **Queue view (right side)**
+     - Group appointments by status:
+       - BOOKED / ARRIVED at the top
+       - IN_TREATMENT in the middle
+       - DONE at the bottom
+     - Display them as cards with patientName + time + dentistName.
+
+- UX:
+  - Show loading and error states.
+  - Use color tags or badges for each status (e.g. green for DONE, yellow for ARRIVED, red for NO_SHOW).
+  - UI should adapt to small screens (stack sections vertically on mobile).
+
+### What to output
+
+1. Full `TodayAppointmentsPage` React component with hooks and Tailwind styling.
+2. TypeScript types for `Appointment`.
+3. Helper function or small mapping from status → Tailwind color classes.
+4. Example of the API calls using `fetch`.

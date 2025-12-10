@@ -1,0 +1,140 @@
+{
+  "data": [
+    {
+      "id": "apt-001",
+      "patientName": "สมชาย ใจดี",
+      "dentistName": "Dr. Sarah Johnson",
+      "startTime": "2024-01-15T09:00:00Z",
+      "endTime": "2024-01-15T09:30:00Z",
+      "status": "BOOKED",
+      "chairNumber": 1
+    },
+    {
+      "id": "apt-002",
+      "patientName": "สมหญิง รักดี",
+      "dentistName": "Dr. Sarah Johnson",
+      "startTime": "2024-01-15T09:30:00Z",
+      "endTime": "2024-01-15T10:00:00Z",
+      "status": "ARRIVED",
+      "chairNumber": 2
+    },
+    {
+      "id": "apt-003",
+      "patientName": "วิชัย สุขใจ",
+      "dentistName": "Dr. Michael Chen",
+      "startTime": "2024-01-15T10:00:00Z",
+      "endTime": "2024-01-15T10:45:00Z",
+      "status": "IN_TREATMENT",
+      "chairNumber": 1
+    },
+    {
+      "id": "apt-004",
+      "patientName": "มาลี ใสสะอาด",
+      "dentistName": "Dr. Sarah Johnson",
+      "startTime": "2024-01-15T08:00:00Z",
+      "endTime": "2024-01-15T08:30:00Z",
+      "status": "DONE",
+      "chairNumber": 3
+    },
+    {
+      "id": "apt-005",
+      "patientName": "ประยุทธ์ ดีมาก",
+      "dentistName": "Dr. Michael Chen",
+      "startTime": "2024-01-15T11:00:00Z",
+      "endTime": "2024-01-15T11:30:00Z",
+      "status": "BOOKED",
+      "chairNumber": null
+    },
+    {
+      "id": "apt-006",
+      "patientName": "นิดา สวยงาม",
+      "dentistName": "Dr. Sarah Johnson",
+      "startTime": "2024-01-15T10:30:00Z",
+      "endTime": "2024-01-15T11:15:00Z",
+      "status": "IN_TREATMENT",
+      "chairNumber": 2
+    },
+    {
+      "id": "apt-007",
+      "patientName": "สมศักดิ์ เก่งมาก",
+      "dentistName": "Dr. Michael Chen",
+      "startTime": "2024-01-15T07:30:00Z",
+      "endTime": "2024-01-15T08:00:00Z",
+      "status": "DONE",
+      "chairNumber": 1
+    },
+    {
+      "id": "apt-008",
+      "patientName": "กานดา รักงาน",
+      "dentistName": "Dr. Sarah Johnson",
+      "startTime": "2024-01-15T11:30:00Z",
+      "endTime": "2024-01-15T12:00:00Z",
+      "status": "BOOKED",
+      "chairNumber": 3
+    },
+    {
+      "id": "apt-009",
+      "patientName": "วีระ ใจกล้า",
+      "dentistName": "Dr. Michael Chen",
+      "startTime": "2024-01-15T08:30:00Z",
+      "endTime": "2024-01-15T09:00:00Z",
+      "status": "NO_SHOW",
+      "chairNumber": null
+    },
+    {
+      "id": "apt-010",
+      "patientName": "สุรีย์ สดใส",
+      "dentistName": "Dr. Sarah Johnson",
+      "startTime": "2024-01-15T12:00:00Z",
+      "endTime": "2024-01-15T12:30:00Z",
+      "status": "ARRIVED",
+      "chairNumber": null
+    },
+    {
+      "id": "apt-011",
+      "patientName": "ธนพล ทำงานดี",
+      "dentistName": "Dr. Michael Chen",
+      "startTime": "2024-01-15T13:00:00Z",
+      "endTime": "2024-01-15T13:45:00Z",
+      "status": "BOOKED",
+      "chairNumber": 1
+    },
+    {
+      "id": "apt-012",
+      "patientName": "อรุณี แจ่มใส",
+      "dentistName": "Dr. Sarah Johnson",
+      "startTime": "2024-01-15T14:00:00Z",
+      "endTime": "2024-01-15T14:30:00Z",
+      "status": "CANCELLED",
+      "chairNumber": null
+    },
+    {
+      "id": "apt-013",
+      "patientName": "ชาญชัย เก่งกาจ",
+      "dentistName": "Dr. Michael Chen",
+      "startTime": "2024-01-15T13:30:00Z",
+      "endTime": "2024-01-15T14:00:00Z",
+      "status": "IN_TREATMENT",
+      "chairNumber": 2
+    },
+    {
+      "id": "apt-014",
+      "patientName": "ปราณี สวยงาม",
+      "dentistName": "Dr. Sarah Johnson",
+      "startTime": "2024-01-15T15:00:00Z",
+      "endTime": "2024-01-15T15:30:00Z",
+      "status": "BOOKED",
+      "chairNumber": 3
+    },
+    {
+      "id": "apt-015",
+      "patientName": "สมเกียรติ ดีใจ",
+      "dentistName": "Dr. Michael Chen",
+      "startTime": "2024-01-15T14:30:00Z",
+      "endTime": "2024-01-15T15:00:00Z",
+      "status": "DONE",
+      "chairNumber": 1
+    }
+  ]
+}
+

@@ -1,0 +1,78 @@
+{
+  "data": [
+    {
+      "id": "pat-001",
+      "fullName": "สมชาย ใจดี",
+      "phone": "0812345678",
+      "nationalId": "1234567890123",
+      "createdAt": "2024-01-10T08:00:00Z"
+    },
+    {
+      "id": "pat-002",
+      "fullName": "สมหญิง รักดี",
+      "phone": "0823456789",
+      "nationalId": "2345678901234",
+      "createdAt": "2024-01-11T09:15:00Z"
+    },
+    {
+      "id": "pat-003",
+      "fullName": "วิชัย สุขใจ",
+      "phone": "0834567890",
+      "nationalId": null,
+      "createdAt": "2024-01-12T10:30:00Z"
+    },
+    {
+      "id": "pat-004",
+      "fullName": "มาลี ใสสะอาด",
+      "phone": "0845678901",
+      "nationalId": "3456789012345",
+      "createdAt": "2024-01-13T11:45:00Z"
+    },
+    {
+      "id": "pat-005",
+      "fullName": "ประยุทธ์ ดีมาก",
+      "phone": "0856789012",
+      "nationalId": "4567890123456",
+      "createdAt": "2024-01-14T12:00:00Z"
+    },
+    {
+      "id": "pat-006",
+      "fullName": "นิดา สวยงาม",
+      "phone": "0867890123",
+      "nationalId": null,
+      "createdAt": "2024-01-14T13:20:00Z"
+    },
+    {
+      "id": "pat-007",
+      "fullName": "สมศักดิ์ เก่งมาก",
+      "phone": "0878901234",
+      "nationalId": "5678901234567",
+      "createdAt": "2024-01-14T14:40:00Z"
+    },
+    {
+      "id": "pat-008",
+      "fullName": "กานดา รักงาน",
+      "phone": "0889012345",
+      "nationalId": "6789012345678",
+      "createdAt": "2024-01-14T15:00:00Z"
+    },
+    {
+      "id": "pat-009",
+      "fullName": "วีระ ใจกล้า",
+      "phone": "0890123456",
+      "nationalId": null,
+      "createdAt": "2024-01-14T16:15:00Z"
+    },
+    {
+      "id": "pat-010",
+      "fullName": "สุรีย์ สดใส",
+      "phone": "0901234567",
+      "nationalId": "7890123456789",
+      "createdAt": "2024-01-14T17:30:00Z"
+    }
+  ],
+  "page": 1,
+  "totalPages": 1,
+  "total": 10
+}
+
