@@ -1,28 +1,7 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
-import { apiFetch } from '../utils/mockApi';
+import { useState, useEffect, useCallback } from 'react';
+import { getDashboardStats, getStockList } from '../services/stock.api';
+import type { DashboardStats, StockProduct } from '../services/stock.api';
 
-interface DashboardStats {
-  total_products: number;
-  low_stock_count: number;
-  near_expiry_count: number;
-  total_stock_value?: number;
-}
-
-interface DashboardResponse {
-  data: DashboardStats;
-}
-
-interface StockProduct {
-  barcode: string;
-  product_name: string;
-  remaining_quantity: number;
-  min_stock: number;
-  unit: string;
-}
-
-interface StockListResponse {
-  data: StockProduct[];
-}
 
 // Debounce hook for search input
 function useDebounce<T>(value: T, delay: number): T {
@@ -58,31 +37,11 @@ export default function DashboardPage() {
     setError(null);
 
     try {
-      const response = await apiFetch('/api/stock/dashboard');
-
-      const contentType = response.headers.get('content-type') || '';
-      const isJson = contentType.includes('application/json');
-
-      if (!response.ok) {
-        if (!isJson) {
-          throw new Error(`API endpoint not found or server error (${response.status})`);
-        }
-        try {
-          const errorData = await response.json();
-          throw new Error(errorData.message || `Failed to fetch dashboard stats: ${response.statusText}`);
-        } catch (parseErr) {
-          throw new Error(`Failed to fetch dashboard stats: ${response.status} ${response.statusText}`);
-        }
-      }
-
-      if (!isJson) {
-        throw new Error('API endpoint returned non-JSON response');
-      }
-
-      const data: DashboardResponse = await response.json();
-      setStats(data.data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred while fetching dashboard stats');
+      const data = await getDashboardStats();
+      setStats(data);
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || err?.message || 'An error occurred while fetching dashboard stats';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -97,36 +56,11 @@ export default function DashboardPage() {
     setStockListError(null);
 
     try {
-      const params = new URLSearchParams();
-      if (search.trim()) {
-        params.append('search', search.trim());
-      }
-
-      const response = await apiFetch(`/api/stock/list?${params.toString()}`);
-
-      const contentType = response.headers.get('content-type') || '';
-      const isJson = contentType.includes('application/json');
-
-      if (!response.ok) {
-        if (!isJson) {
-          throw new Error(`API endpoint not found or server error (${response.status})`);
-        }
-        try {
-          const errorData = await response.json();
-          throw new Error(errorData.message || `Failed to fetch stock list: ${response.statusText}`);
-        } catch (parseErr) {
-          throw new Error(`Failed to fetch stock list: ${response.status} ${response.statusText}`);
-        }
-      }
-
-      if (!isJson) {
-        throw new Error('API endpoint returned non-JSON response');
-      }
-
-      const data: StockListResponse = await response.json();
-      setStockList(data.data);
-    } catch (err) {
-      setStockListError(err instanceof Error ? err.message : 'An error occurred while fetching stock list');
+      const data = await getStockList(search.trim() || undefined);
+      setStockList(data);
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || err?.message || 'An error occurred while fetching stock list';
+      setStockListError(errorMessage);
       setStockList([]);
     } finally {
       setLoadingStockList(false);

@@ -1,22 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
-import { apiFetch } from '../utils/mockApi';
-
-interface LotDetail {
-  lot: string;
-  quantity: number;
-}
-
-interface StockMovementSession {
-  session_id?: string;
-  product_name: string;
-  type: 'IN' | 'OUT';
-  created_at: string;
-  details: LotDetail[];
-}
-
-interface StockMovementResponse {
-  data: StockMovementSession[];
-}
+import { getStockLogs } from '../services/stock.api';
+import type { StockMovementSession } from '../services/stock.api';
 
 type DateFilter = 'today' | '7days';
 
@@ -33,31 +17,11 @@ export default function StockMovementLogPage() {
     setError(null);
 
     try {
-      const response = await apiFetch(`/api/stock/movements?filter=${filter}`);
-
-      const contentType = response.headers.get('content-type') || '';
-      const isJson = contentType.includes('application/json');
-
-      if (!response.ok) {
-        if (!isJson) {
-          throw new Error(`API endpoint not found or server error (${response.status})`);
-        }
-        try {
-          const errorData = await response.json();
-          throw new Error(errorData.message || `Failed to fetch stock movements: ${response.statusText}`);
-        } catch (parseErr) {
-          throw new Error(`Failed to fetch stock movements: ${response.status} ${response.statusText}`);
-        }
-      }
-
-      if (!isJson) {
-        throw new Error('API endpoint returned non-JSON response');
-      }
-
-      const data: StockMovementResponse = await response.json();
-      setMovements(data.data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred while fetching stock movements');
+      const data = await getStockLogs(filter);
+      setMovements(data);
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || err?.message || 'An error occurred while fetching stock movements';
+      setError(errorMessage);
       setMovements([]);
     } finally {
       setLoading(false);

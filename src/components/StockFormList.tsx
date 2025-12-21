@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { BrowserMultiFormatReader } from '@zxing/library';
-import { apiFetch } from '../utils/mockApi';
+import { getProductByBarcode } from '../services/stock.api';
+import type { ProductInfo } from '../services/stock.api';
 
 interface StockFormItem {
   barcode: string;
@@ -9,11 +10,6 @@ interface StockFormItem {
   lot?: string;
   expire_date?: string;
   remaining_quantity?: number;
-}
-
-interface ProductInfo {
-  product_name: string;
-  remaining_quantity: number;
 }
 
 interface StockFormListProps {
@@ -75,33 +71,11 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
     setSubmitError(null);
 
     try {
-      const response = await apiFetch(`/api/stock/product?barcode=${encodeURIComponent(barcode)}`, {
-        method: 'GET',
-      });
-
-      const contentType = response.headers.get('content-type') || '';
-      const isJson = contentType.includes('application/json');
-
-      if (!response.ok) {
-        if (!isJson) {
-          throw new Error(`API endpoint not found or server error (${response.status})`);
-        }
-        try {
-          const errorData = await response.json();
-          throw new Error(errorData.message || `Failed to fetch product: ${response.statusText}`);
-        } catch (parseErr) {
-          throw new Error(`Failed to fetch product: ${response.status} ${response.statusText}`);
-        }
-      }
-
-      if (!isJson) {
-        throw new Error('API endpoint returned non-JSON response');
-      }
-
-      const data: ProductInfo = await response.json();
+      const data = await getProductByBarcode(barcode);
       return data;
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'An error occurred while fetching product info');
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || err?.message || 'An error occurred while fetching product info';
+      setSubmitError(errorMessage);
       return null;
     } finally {
       setFetchingProduct(false);

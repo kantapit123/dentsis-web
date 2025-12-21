@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
-import { apiFetch } from '../utils/mockApi';
+import { stockIn } from '../services/stock.api';
+import type { StockInRequest } from '../services/stock.api';
 import StockFormList from '../components/StockFormList';
 
 interface StockFormItem {
@@ -11,67 +12,19 @@ interface StockFormItem {
   remaining_quantity?: number;
 }
 
-interface BulkStockInResponse {
-  success: boolean;
-  message: string;
-  results: Array<{
-    barcode: string;
-    product_name: string;
-    quantity: number;
-    remaining_quantity: number;
-  }>;
-  errors?: string[];
-}
-
-interface BulkStockInError {
-  message: string;
-  errors?: string[];
-  results?: any[];
-}
-
 export default function StockInPage() {
   // Handle bulk form submit
+  // Note: Backend handles lot logic, frontend sends barcode + quantity only
   const handleSubmit = useCallback(async (items: StockFormItem[]) => {
-    const response = await apiFetch('/api/stock/in/bulk', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        items: items.map((item) => ({
-          barcode: item.barcode.trim(),
-          quantity: item.quantity,
-          lot: item.lot?.trim(),
-          expire_date: item.expire_date,
-        })),
-      }),
-    });
-
-    const contentType = response.headers.get('content-type') || '';
-    const isJson = contentType.includes('application/json');
-
-    if (!response.ok) {
-      if (!isJson) {
-        throw new Error(`API endpoint not found or server error (${response.status})`);
-      }
-      try {
-        const errorData: BulkStockInError = await response.json();
-        const errorMessage = errorData.errors && errorData.errors.length > 0
-          ? `${errorData.message}: ${errorData.errors.join('; ')}`
-          : errorData.message || `Failed to add stock: ${response.statusText}`;
-        throw new Error(errorMessage);
-      } catch (parseErr) {
-        throw new Error(`Failed to add stock: ${response.status} ${response.statusText}`);
-      }
-    }
-
-    if (!isJson) {
-      throw new Error('API endpoint returned non-JSON response');
-    }
-
-    const result: BulkStockInResponse = await response.json();
-    if (!result.success) {
-      throw new Error(result.message || 'Failed to add stock');
+    try {
+      const requestItems: StockInRequest[] = items.map((item) => ({
+        barcode: item.barcode.trim(),
+        quantity: item.quantity,
+      }));
+      await stockIn(requestItems);
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.message || err?.message || 'Failed to add stock';
+      throw new Error(errorMessage);
     }
   }, []);
 
