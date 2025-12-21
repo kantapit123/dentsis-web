@@ -335,7 +335,7 @@ export default function StockForm({ mode, onSubmit }: StockFormProps) {
               <p className="text-green-800 font-medium">
                 {mode === 'OUT' ? 'Item used successfully!' : 'Stock added successfully!'}
               </p>
-              {mode === 'OUT' && remainingQuantity !== null && (
+              {mode === 'OUT' && remainingQuantity !== null && remainingQuantity !== undefined && (
                 <p className="text-green-700 text-sm mt-1">
                   Remaining quantity: {remainingQuantity.toLocaleString()}
                 </p>
@@ -459,7 +459,7 @@ export default function StockForm({ mode, onSubmit }: StockFormProps) {
         {formErrors.quantity && (
           <p className="mt-1 text-sm text-red-600">{formErrors.quantity}</p>
         )}
-        {mode === 'OUT' && remainingQuantity !== null && !submitSuccess && (
+        {mode === 'OUT' && remainingQuantity !== null && remainingQuantity !== undefined && !submitSuccess && (
           <p className="mt-1 text-sm text-gray-500">
             Current stock: {remainingQuantity.toLocaleString()} units
           </p>

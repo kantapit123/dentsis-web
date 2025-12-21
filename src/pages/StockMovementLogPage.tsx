@@ -48,7 +48,8 @@ export default function StockMovementLogPage() {
 
   // Calculate total quantity from details
   const getTotalQuantity = (details: LotDetail[]): number => {
-    return details.reduce((sum, detail) => sum + detail.quantity, 0);
+    if (!details || !Array.isArray(details)) return 0;
+    return details.reduce((sum, detail) => sum + (detail.quantity ?? 0), 0);
   };
 
   // Format date and time for display
@@ -167,7 +168,7 @@ export default function StockMovementLogPage() {
         {/* Movements List */}
         {!loading && !error && (
           <div className="bg-white rounded-lg shadow-sm overflow-hidden">
-            {movements.length === 0 ? (
+            {!movements || movements.length === 0 ? (
               <div className="p-12 text-center">
                 <div className="text-gray-400 mb-2">
                   <svg
@@ -247,11 +248,11 @@ export default function StockMovementLogPage() {
 
                               {/* Product Info */}
                               <div className="flex-1">
-                                <div className="font-semibold text-gray-900">{session.product_name}</div>
+                                <div className="font-semibold text-gray-900">{session.product_name || '-'}</div>
                                 <div className="text-sm text-gray-600 mt-1">
                                   <span className="font-medium">{totalQuantity.toLocaleString()}</span>
                                   {' '}units
-                                  {session.details.length > 1 && (
+                                  {session.details && session.details.length > 1 && (
                                     <span className="text-gray-500 ml-2">
                                       ({session.details.length} lot{session.details.length !== 1 ? 's' : ''})
                                     </span>
@@ -266,7 +267,7 @@ export default function StockMovementLogPage() {
                             <div className="text-sm text-gray-600 whitespace-nowrap">
                               {formatDateTime(session.created_at)}
                             </div>
-                            {session.details.length > 0 && (
+                            {session.details && session.details.length > 0 && (
                               <button
                                 onClick={() => toggleSession(sessionKey)}
                                 className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded p-1 transition"
@@ -294,7 +295,7 @@ export default function StockMovementLogPage() {
                         </div>
 
                         {/* Expandable Lot Details */}
-                        {isExpanded && session.details.length > 0 && (
+                        {isExpanded && session.details && session.details.length > 0 && (
                           <div className="mt-3 pt-3 border-t border-gray-200">
                             <div className="text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
                               Lot Breakdown
@@ -307,10 +308,10 @@ export default function StockMovementLogPage() {
                                 >
                                   <div className="flex items-center gap-2">
                                     <span className="text-sm font-medium text-gray-900">Lot:</span>
-                                    <span className="text-sm font-mono text-gray-700">{detail.lot}</span>
+                                    <span className="text-sm font-mono text-gray-700">{detail.lot || '-'}</span>
                                   </div>
                                   <div className="text-sm text-gray-600">
-                                    <span className="font-medium">{detail.quantity.toLocaleString()}</span>
+                                    <span className="font-medium">{(detail.quantity ?? 0).toLocaleString()}</span>
                                     {' '}units
                                   </div>
                                 </div>

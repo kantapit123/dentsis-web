@@ -16,6 +16,8 @@ export interface ProductInfo {
 export interface StockInRequest {
   barcode: string;
   quantity: number;
+  lotNumber: string;
+  expireDate: string;
 }
 
 export interface StockOutRequest {
@@ -25,36 +27,36 @@ export interface StockOutRequest {
 
 export interface StockInResponse {
   product_name: string;
-  remaining_quantity: number;
+  remainingQuantity: number;
   message?: string;
 }
 
 
 export interface DashboardStats {
-  total_products: number;
-  low_stock_count: number;
-  near_expiry_count: number;
-  total_stock_value?: number;
+  totalProducts: number;
+  lowStockCount: number;
+  nearExpiryCount: number;
+  totalStockValue?: number;
 }
 
 export interface StockProduct {
   barcode: string;
-  product_name: string;
-  remaining_quantity: number;
-  min_stock: number;
+  productName: string;
+  remainingQuantity: number;
+  minStock: number;
   unit: string;
 }
 
 export interface LotDetail {
-  lot: string;
+  lotNumber: string;
   quantity: number;
 }
 
 export interface StockMovementSession {
   session_id?: string;
-  product_name: string;
+  productName: string;
   type: 'IN' | 'OUT';
-  created_at: string;
+  createdAt: string;
   details: LotDetail[];
 }
 
@@ -62,9 +64,7 @@ export interface StockMovementSession {
  * Get product information by barcode
  */
 export async function getProductByBarcode(barcode: string): Promise<ProductInfo> {
-  const response = await apiClient.get<ProductInfo>('/api/stock/products', {
-    params: { barcode },
-  });
+  const response = await apiClient.get<ProductInfo>(`/api/products/${barcode}`);
   return response.data;
 }
 
@@ -92,7 +92,7 @@ export async function stockOut(items: StockOutRequest[]): Promise<{ success: boo
  * Get dashboard statistics
  */
 export async function getDashboardStats(): Promise<DashboardStats> {
-  const response = await apiClient.get<{ data: DashboardStats }>('/api/stock/dashboard');
+  const response = await apiClient.get<{ data: DashboardStats }>('/api/dashboard');
   return response.data.data;
 }
 
@@ -100,10 +100,14 @@ export async function getDashboardStats(): Promise<DashboardStats> {
  * Get stock list with optional search
  */
 export async function getStockList(search?: string): Promise<StockProduct[]> {
-  const response = await apiClient.get<{ data: StockProduct[] }>('/api/stock/products', {
+  const response = await apiClient.get<{ data: StockProduct[] }>('/api/products', {
     params: search ? { search } : {},
   });
-  return response.data.data;
+  // Handle different response structures
+  if (Array.isArray(response.data)) {
+    return response.data;
+  }
+  return response.data?.data || [];
 }
 
 /**
@@ -113,6 +117,10 @@ export async function getStockLogs(filter: 'today' | '7days' = 'today'): Promise
   const response = await apiClient.get<{ data: StockMovementSession[] }>('/api/stock/logs', {
     params: { filter },
   });
-  return response.data.data;
+  // Handle different response structures
+  if (Array.isArray(response.data)) {
+    return response.data;
+  }
+  return response.data?.data || [];
 }
 

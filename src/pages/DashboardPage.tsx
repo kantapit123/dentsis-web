@@ -57,7 +57,7 @@ export default function DashboardPage() {
 
     try {
       const data = await getStockList(search.trim() || undefined);
-      setStockList(data);
+      setStockList(Array.isArray(data) ? data : []);
     } catch (err: any) {
       const errorMessage = err?.response?.data?.message || err?.message || 'An error occurred while fetching stock list';
       setStockListError(errorMessage);
@@ -89,8 +89,10 @@ export default function DashboardPage() {
 
   // Stock Row Component (reusable)
   const StockRow = ({ product }: { product: StockProduct }) => {
-    const isOutOfStock = product.remaining_quantity === 0;
-    const isLowStock = product.remaining_quantity > 0 && product.remaining_quantity <= product.min_stock;
+    const remainingQty = product.remainingQuantity ?? 0;
+    const minStock = product.minStock ?? 0;
+    const isOutOfStock = remainingQty === 0;
+    const isLowStock = remainingQty > 0 && remainingQty <= minStock;
 
     const getRowClasses = () => {
       if (isOutOfStock) {
@@ -113,16 +115,16 @@ export default function DashboardPage() {
     return (
       <tr className={`transition ${getRowClasses()}`}>
         <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-          <div className="text-sm font-medium text-gray-900">{product.product_name}</div>
-          <div className="text-xs text-gray-500 mt-1 font-mono">{product.barcode}</div>
+          <div className="text-sm font-medium text-gray-900">{product.productName || '-'}</div>
+          <div className="text-xs text-gray-500 mt-1 font-mono">{product.barcode || '-'}</div>
         </td>
         <td className="px-4 md:px-6 py-4 whitespace-nowrap">
           <div className={`text-sm ${getQuantityClasses()}`}>
-            {product.remaining_quantity.toLocaleString()}
+            {remainingQty.toLocaleString()}
           </div>
         </td>
         <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-          <div className="text-sm text-gray-600">{product.unit}</div>
+          <div className="text-sm text-gray-600">{product.unit || '-'}</div>
         </td>
         <td className="px-4 md:px-6 py-4 whitespace-nowrap">
           {isOutOfStock ? (
@@ -183,7 +185,7 @@ export default function DashboardPage() {
           <div className="flex-1">
             <p className="text-sm font-medium text-gray-600 mb-2">{title}</p>
             <p className={`text-3xl font-bold ${getTextColors()}`}>
-              {typeof value === 'number' ? value.toLocaleString() : value}
+              {typeof value === 'number' && value != null ? value.toLocaleString() : value ?? '-'}
             </p>
           </div>
           <div className={`${alertType === 'low' ? 'text-red-500' : alertType === 'warning' ? 'text-yellow-500' : 'text-gray-400'}`}>
@@ -245,7 +247,7 @@ export default function DashboardPage() {
             {/* Total Products */}
             <StatCard
               title="Total Products"
-              value={stats.total_products}
+              value={stats.totalProducts}
               icon={
                 <svg
                   className="h-8 w-8"
@@ -266,8 +268,8 @@ export default function DashboardPage() {
             {/* Low Stock Count */}
             <StatCard
               title="Low Stock"
-              value={stats.low_stock_count}
-              alertType={stats.low_stock_count > 0 ? 'low' : 'normal'}
+              value={stats.lowStockCount}
+              alertType={stats.lowStockCount > 0 ? 'low' : 'normal'}
               icon={
                 <svg
                   className="h-8 w-8"
@@ -288,8 +290,8 @@ export default function DashboardPage() {
             {/* Near Expiry Count */}
             <StatCard
               title="Near Expiry"
-              value={stats.near_expiry_count}
-              alertType={stats.near_expiry_count > 0 ? 'warning' : 'normal'}
+              value={stats.nearExpiryCount}
+              alertType={stats.nearExpiryCount > 0 ? 'warning' : 'normal'}
               icon={
                 <svg
                   className="h-8 w-8"
@@ -308,10 +310,10 @@ export default function DashboardPage() {
             />
 
             {/* Total Stock Value (Optional) */}
-            {stats.total_stock_value !== undefined && (
+            {stats.totalStockValue !== undefined && (
               <StatCard
                 title="Total Stock Value"
-                value={formatCurrency(stats.total_stock_value)}
+                value={formatCurrency(stats.totalStockValue)}
                 icon={
                   <svg
                     className="h-8 w-8"
@@ -391,7 +393,7 @@ export default function DashboardPage() {
               {/* Stock Table */}
               {!loadingStockList && !stockListError && (
                 <>
-                  {stockList.length === 0 ? (
+                  {!stockList || stockList.length === 0 ? (
                     <div className="p-12 text-center">
                       <div className="text-gray-400 mb-2">
                         <svg
@@ -433,7 +435,7 @@ export default function DashboardPage() {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {stockList.map((product) => (
+                          {stockList && stockList.map((product) => (
                             <StockRow key={product.barcode} product={product} />
                           ))}
                         </tbody>

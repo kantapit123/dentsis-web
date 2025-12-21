@@ -456,9 +456,9 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-gray-900">{item.product_name}</div>
                       <div className="text-sm text-gray-500 mt-1 font-mono">{item.barcode}</div>
-                      {mode === 'OUT' && item.remaining_quantity !== undefined && (
+                      {mode === 'OUT' && item.remaining_quantity !== undefined && item.remaining_quantity != null && (
                         <div className="text-xs text-gray-500 mt-1">
-                          Available: {item.remaining_quantity} units
+                          Available: {item.remaining_quantity.toLocaleString()} units
                         </div>
                       )}
                     </div>

@@ -20,6 +20,8 @@ export default function StockInPage() {
       const requestItems: StockInRequest[] = items.map((item) => ({
         barcode: item.barcode.trim(),
         quantity: item.quantity,
+        lotNumber: item.lot ?? '',
+        expireDate: item.expire_date ?? '',
       }));
       await stockIn(requestItems);
     } catch (err: any) {
