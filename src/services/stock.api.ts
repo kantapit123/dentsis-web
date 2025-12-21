@@ -64,7 +64,30 @@ export interface StockMovementSession {
  * Get product information by barcode
  */
 export async function getProductByBarcode(barcode: string): Promise<ProductInfo> {
-  const response = await apiClient.get<ProductInfo>(`/api/products/${barcode}`);
+  const response = await apiClient.get<ProductInfo>(`/api/stock/${barcode}`);
+  return response.data;
+}
+
+/**
+ * Create a new product
+ */
+export interface CreateProductRequest {
+  barcode: string;
+  name: string;
+  unit: string;
+  minStock?: number;
+}
+
+export interface CreateProductResponse {
+  barcode: string;
+  name: string;
+  unit: string;
+  minStock: number;
+  remainingQuantity: number;
+}
+
+export async function createProduct(data: CreateProductRequest): Promise<CreateProductResponse> {
+  const response = await apiClient.post<CreateProductResponse>('/api/stock/create', data);
   return response.data;
 }
 

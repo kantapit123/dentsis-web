@@ -2,6 +2,7 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import { BrowserMultiFormatReader } from '@zxing/library';
 import { getProductByBarcode } from '../services/stock.api';
 import type { ProductInfo } from '../services/stock.api';
+import AddProductModal from './AddProductModal';
 
 interface StockFormItem {
   barcode: string;
@@ -32,6 +33,10 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  
+  // Add product modal state
+  const [showAddProductModal, setShowAddProductModal] = useState<boolean>(false);
+  const [pendingBarcode, setPendingBarcode] = useState<string>('');
 
   // Barcode scanning state
   const [scanning, setScanning] = useState<boolean>(false);
@@ -74,6 +79,12 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
       const data = await getProductByBarcode(barcode);
       return data;
     } catch (err: any) {
+      // If 404, show add product modal
+      if (err?.response?.status === 404) {
+        setPendingBarcode(barcode);
+        setShowAddProductModal(true);
+        return null;
+      }
       const errorMessage = err?.response?.data?.message || err?.message || 'An error occurred while fetching product info';
       setSubmitError(errorMessage);
       return null;
@@ -81,6 +92,7 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
       setFetchingProduct(false);
     }
   }, []);
+
 
   // Start barcode scanning
   const startScanning = useCallback(async () => {
@@ -227,6 +239,18 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
     setCurrentLot('');
     setCurrentExpireDate('');
   }, [barcodeInput, currentQuantity, currentLot, currentExpireDate, items, mode, fetchProductInfo, showToast]);
+
+  // Handle product creation success - retry adding to list
+  const handleProductCreated = useCallback(async () => {
+    const barcodeToRetry = pendingBarcode;
+    setShowAddProductModal(false);
+    setPendingBarcode('');
+    
+    if (!barcodeToRetry) return;
+    
+    // Retry adding to list (will fetch product info again, which should now succeed)
+    await handleAddToList(barcodeToRetry);
+  }, [pendingBarcode, handleAddToList]);
 
   // Handle remove item
   const handleRemoveItem = useCallback((index: number) => {
@@ -585,6 +609,17 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
           </div>
         </div>
       )}
+
+      {/* Add Product Modal */}
+      <AddProductModal
+        barcode={pendingBarcode}
+        isOpen={showAddProductModal}
+        onClose={() => {
+          setShowAddProductModal(false);
+          setPendingBarcode('');
+        }}
+        onSuccess={handleProductCreated}
+      />
     </>
   );
 }
