@@ -2,55 +2,73 @@
 alwaysApply: true
 ---
 
-Generate a React + TypeScript + Tailwind page for **Today's Appointments & Queue**.
+Generate a React + TypeScript + Tailwind page for **Dental Clinic Stock**.
 
 ### Requirements
 
-- Component name: `TodayAppointmentsPage`.
+You are a senior frontend engineer designing an MVP stock management system for a medical clinic.
 
-- Layout:
-  - Header with title: "Today's Appointments"
-  - Two main sections (responsive):
-    - Left: list/table of appointments for today.
-    - Right: "Queue View" showing status in a more visual way (for receptionist).
+GOAL:
+- Extremely fast usage for clinic staff
+- Stock out action must be done in under 3 seconds
+- Mobile-first (tablet & phone in clinic)
+- Simple UI, no over-engineering
 
-- Data:
-  - Fetch from `GET /api/v1/appointments/today`.
-  - Each appointment item includes:
-    - id
-    - patientName
-    - dentistName
-    - startTime
-    - endTime
-    - status (BOOKED, ARRIVED, IN_TREATMENT, DONE, NO_SHOW, CANCELLED)
-    - chairNumber (optional)
+TECH STACK:
+- React + TypeScript
+- Vite
+- Tailwind CSS
+- React Router
+- Axios
+- Barcode scanning via device camera (ZXing or QuaggaJS)
+- No external UI frameworks (no MUI, AntD)
 
-- Features:
+CORE PRINCIPLES:
+- Fewer clicks > perfect UI
+- One primary action per screen
+- Clear visual status (low stock, near expiry)
+- All pages must work well on tablet
 
-  1. **Filter by dentist & status**
-     - Dropdown to filter by dentist (e.g. "All dentists", "Dr. A", "Dr. B").
-     - Dropdown or pills to filter by status.
+DATA MODEL (frontend assumption):
+Product:
+- id
+- name
+- barcode
+- unit
+- min_stock
+- total_quantity
 
-  2. **Appointment table**
-     - Columns: time range, patientName, dentistName, chairNumber, status, actions.
-     - Action button to change status (e.g. BOOKED → ARRIVED → IN_TREATMENT → DONE).
-     - On status change, call `PATCH /api/v1/appointments/:id/status` with the new status and optimistically update UI.
+StockBatch:
+- id
+- product_id
+- lot
+- expire_date
+- quantity
 
-  3. **Queue view (right side)**
-     - Group appointments by status:
-       - BOOKED / ARRIVED at the top
-       - IN_TREATMENT in the middle
-       - DONE at the bottom
-     - Display them as cards with patientName + time + dentistName.
+StockMovement:
+- id
+- type (IN | OUT)
+- quantity
+- created_at
 
-- UX:
-  - Show loading and error states.
-  - Use color tags or badges for each status (e.g. green for DONE, yellow for ARRIVED, red for NO_SHOW).
-  - UI should adapt to small screens (stack sections vertically on mobile).
+PAGES REQUIRED (MVP):
+- Login (mock only)
+- Dashboard
+- Stock List
+- Stock In
+- Quick Stock Out (barcode scan)
+- Stock Log
 
-### What to output
+CONSTRAINTS:
+- Keep components small
+- No premature optimization
+- No advanced state management (no Redux)
+- Use React hooks only
 
-1. Full `TodayAppointmentsPage` React component with hooks and Tailwind styling.
-2. TypeScript types for `Appointment`.
-3. Helper function or small mapping from status → Tailwind color classes.
-4. Example of the API calls using `fetch`.
+OUTPUT REQUIREMENT:
+- Production-ready code
+- Clear folder structure
+- Reusable components
+- Tailwind utility-first styling
+
+

@@ -16,6 +16,21 @@ import patientsMock from '../mocks/patients.json';
 let appointmentsData = JSON.parse(JSON.stringify(appointmentsTodayMock.data));
 let patientsData = JSON.parse(JSON.stringify(patientsMock.data));
 
+// Mock stock data (in-memory for development)
+interface MockProduct {
+  barcode: string;
+  product_name: string;
+  remaining_quantity: number;
+}
+
+let stockData: MockProduct[] = [
+  { barcode: '1234567890123', product_name: 'Dental Floss 50m', remaining_quantity: 25 },
+  { barcode: '2345678901234', product_name: 'Toothbrush Soft', remaining_quantity: 15 },
+  { barcode: '3456789012345', product_name: 'Mouthwash 500ml', remaining_quantity: 8 },
+  { barcode: '4567890123456', product_name: 'Dental Paste', remaining_quantity: 0 },
+  { barcode: '5678901234567', product_name: 'Gloves Medium', remaining_quantity: 50 },
+];
+
 // Check if we should use mock API (set in environment or localStorage)
 const shouldUseMock = () => {
   if (typeof window !== 'undefined') {
@@ -113,6 +128,66 @@ export async function mockFetch(url: string, options?: RequestInit): Promise<Res
     patientsData.push(newPatient);
     mockData = newPatient;
     status = 201;
+  } else if (pathname === '/api/stock/product' && options?.method === 'GET') {
+    // Mock get product info by barcode (without deducting)
+    const barcode = searchParams.get('barcode');
+    
+    if (!barcode) {
+      status = 400;
+      mockData = {
+        message: 'Barcode is required',
+      };
+    } else {
+      const product = stockData.find((p) => p.barcode === barcode);
+      
+      if (!product) {
+        status = 404;
+        mockData = {
+          message: 'Product not found',
+        };
+      } else {
+        mockData = {
+          product_name: product.product_name,
+          remaining_quantity: product.remaining_quantity,
+        };
+        status = 200;
+      }
+    }
+  } else if (pathname === '/api/stock/out' && options?.method === 'POST') {
+    // Mock stock out - deduct quantity from product
+    const body = JSON.parse(options.body as string);
+    const { barcode, quantity = 1 } = body;
+    
+    if (!barcode) {
+      status = 400;
+      mockData = {
+        message: 'Barcode is required',
+      };
+    } else {
+      const productIndex = stockData.findIndex((product) => product.barcode === barcode);
+      
+      if (productIndex === -1) {
+        status = 404;
+        mockData = {
+          message: 'Product not found',
+        };
+      } else {
+        const product = stockData[productIndex];
+        const newQuantity = product.remaining_quantity - quantity;
+        
+        // Update stock quantity (allow negative for testing error states)
+        stockData[productIndex] = {
+          ...product,
+          remaining_quantity: newQuantity,
+        };
+        
+        mockData = {
+          product_name: product.product_name,
+          remaining_quantity: newQuantity,
+        };
+        status = 200;
+      }
+    }
   } else {
     // Unknown endpoint - return 404
     status = 404;

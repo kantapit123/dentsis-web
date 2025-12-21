@@ -3,9 +3,10 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import PatientListPage from './pages/PatientListPage.tsx'
 import TodayAppointmentsPage from './pages/TodayAppointmentsPage.tsx'
+import QuickStockOutPage from './pages/QuickStockOutPage.tsx'
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<'patients' | 'appointments'>('appointments');
+  const [currentPage, setCurrentPage] = useState<'patients' | 'appointments' | 'stock-out'>('appointments');
 
   return (
     <div>
@@ -32,11 +33,27 @@ function App() {
           >
             Today's Appointments
           </button>
+          <button
+            onClick={() => setCurrentPage('stock-out')}
+            className={`px-4 py-2 rounded-lg font-medium transition ${
+              currentPage === 'stock-out'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Quick Stock Out
+          </button>
         </div>
       </nav>
 
       {/* Render current page */}
-      {currentPage === 'patients' ? <PatientListPage /> : <TodayAppointmentsPage />}
+      {currentPage === 'patients' ? (
+        <PatientListPage />
+      ) : currentPage === 'stock-out' ? (
+        <QuickStockOutPage />
+      ) : (
+        <TodayAppointmentsPage />
+      )}
     </div>
   );
 }
