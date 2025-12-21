@@ -1,20 +1,20 @@
-import { useState, useCallback, useRef, useEffect } from 'react';
-import { BrowserMultiFormatReader } from '@zxing/library';
-import { getProductByBarcode } from '../services/stock.api';
-import type { ProductInfo } from '../services/stock.api';
-import AddProductModal from './AddProductModal';
+import { useState, useCallback, useRef, useEffect } from "react";
+import { BrowserMultiFormatReader } from "@zxing/library";
+import { getProductByBarcode } from "../services/stock.api";
+import type { ProductInfo } from "../services/stock.api";
+import AddProductModal from "./AddProductModal";
 
 interface StockFormItem {
   barcode: string;
   product_name: string;
   quantity: number;
   lot?: string;
-  expire_date?: string;
+  expire_date?: string | null;
   remaining_quantity?: number;
 }
 
 interface StockFormListProps {
-  mode: 'IN' | 'OUT';
+  mode: "IN" | "OUT";
   onSubmit: (items: StockFormItem[]) => Promise<void>;
 }
 
@@ -23,20 +23,31 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
   const [items, setItems] = useState<StockFormItem[]>([]);
 
   // Barcode input state
-  const [barcodeInput, setBarcodeInput] = useState<string>('');
+  const [barcodeInput, setBarcodeInput] = useState<string>("");
   const [currentQuantity, setCurrentQuantity] = useState<number>(1);
-  const [currentLot, setCurrentLot] = useState<string>('');
-  const [currentExpireDate, setCurrentExpireDate] = useState<string>('');
+  const [currentLot, setCurrentLot] = useState<string>("");
+  const [currentExpireDate, setCurrentExpireDate] = useState<string>("");
 
   // UI state
   const [fetchingProduct, setFetchingProduct] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
-  
+  const [lotValidationErrors, setLotValidationErrors] = useState<Set<number>>(
+    new Set()
+  );
+  const [expireDateValidationErrors, setExpireDateValidationErrors] = useState<Set<number>>(
+    new Set()
+  );
+  // Track which items have expire date enabled
+  const [itemHasExpireDate, setItemHasExpireDate] = useState<Map<number, boolean>>(
+    new Map()
+  );
+
   // Add product modal state
-  const [showAddProductModal, setShowAddProductModal] = useState<boolean>(false);
-  const [pendingBarcode, setPendingBarcode] = useState<string>('');
+  const [showAddProductModal, setShowAddProductModal] =
+    useState<boolean>(false);
+  const [pendingBarcode, setPendingBarcode] = useState<string>("");
 
   // Barcode scanning state
   const [scanning, setScanning] = useState<boolean>(false);
@@ -55,10 +66,20 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
     };
   }, []);
 
-  // Auto-focus barcode input
+  // Auto-focus barcode input (only if user is not typing in another input)
   useEffect(() => {
     if (barcodeInputRef.current && !scanning && !submitting) {
-      barcodeInputRef.current.focus();
+      // Check if user is currently focused on any input/textarea element
+      const activeElement = document.activeElement;
+      const isTypingInInput = 
+        activeElement &&
+        (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA') &&
+        activeElement !== barcodeInputRef.current;
+      
+      // Only auto-focus if user is not typing in another input
+      if (!isTypingInInput) {
+        barcodeInputRef.current.focus();
+      }
     }
   }, [items, scanning, submitting]);
 
@@ -71,28 +92,36 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
   }, []);
 
   // Fetch product information by barcode
-  const fetchProductInfo = useCallback(async (barcode: string): Promise<ProductInfo | null> => {
-    setFetchingProduct(true);
-    setSubmitError(null);
+  const fetchProductInfo = useCallback(
+    async (barcode: string): Promise<ProductInfo | null> => {
+      setFetchingProduct(true);
+      setSubmitError(null);
 
-    try {
-      const data = await getProductByBarcode(barcode);
-      return data;
-    } catch (err: any) {
-      // If 404, show add product modal
-      if (err?.response?.status === 404) {
-        setPendingBarcode(barcode);
-        setShowAddProductModal(true);
+      try {
+        const data = await getProductByBarcode(barcode);
+        return data;
+      } catch (err: any) {
+        // If 404, show add product modal
+        if (
+          err?.response?.data.message ===
+          "Product not found please add the product first"
+        ) {
+          setPendingBarcode(barcode);
+          setShowAddProductModal(true);
+          return null;
+        }
+        const errorMessage =
+          err?.response?.data?.message ||
+          err?.message ||
+          "An error occurred while fetching product info";
+        setSubmitError(errorMessage);
         return null;
+      } finally {
+        setFetchingProduct(false);
       }
-      const errorMessage = err?.response?.data?.message || err?.message || 'An error occurred while fetching product info';
-      setSubmitError(errorMessage);
-      return null;
-    } finally {
-      setFetchingProduct(false);
-    }
-  }, []);
-
+    },
+    []
+  );
 
   // Start barcode scanning
   const startScanning = useCallback(async () => {
@@ -103,11 +132,12 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
       setSubmitError(null);
 
       // Get available video input devices
-      const videoInputDevices = await codeReaderRef.current.listVideoInputDevices();
+      const videoInputDevices =
+        await codeReaderRef.current.listVideoInputDevices();
       const deviceId = videoInputDevices[0]?.deviceId;
 
       if (!deviceId) {
-        throw new Error('No camera device found');
+        throw new Error("No camera device found");
       }
 
       // Start decoding from video device
@@ -119,13 +149,15 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
             const detectedBarcode = result.getText();
             handleBarcodeDetected(detectedBarcode);
           }
-          if (error && error.name !== 'NotFoundException') {
-            console.debug('Scan error:', error);
+          if (error && error.name !== "NotFoundException") {
+            console.debug("Scan error:", error);
           }
         }
       );
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'Failed to access camera');
+      setSubmitError(
+        err instanceof Error ? err.message : "Failed to access camera"
+      );
       setScanning(false);
     }
   }, []);
@@ -153,101 +185,133 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
   }, []);
 
   // Handle add to list
-  const handleAddToList = useCallback(async (barcode?: string) => {
-    const barcodeToUse = barcode || barcodeInput.trim();
-    if (!barcodeToUse) return;
+  const handleAddToList = useCallback(
+    async (barcode?: string) => {
+      const barcodeToUse = barcode || barcodeInput.trim();
+      if (!barcodeToUse) return;
 
-    // Fetch product info
-    const productInfo = await fetchProductInfo(barcodeToUse);
-    if (!productInfo) return;
+      // Fetch product info
+      const productInfo = await fetchProductInfo(barcodeToUse);
+      if (!productInfo) return;
 
-    // For OUT mode, check stock availability
-    if (mode === 'OUT') {
-      if (productInfo.remaining_quantity <= 0) {
-        setSubmitError(`Stock is insufficient for ${productInfo.product_name}. Remaining quantity is ${productInfo.remaining_quantity}.`);
-        return;
-      }
-      if (currentQuantity > productInfo.remaining_quantity) {
-        setSubmitError(`Insufficient stock. Available: ${productInfo.remaining_quantity}, Requested: ${currentQuantity}`);
-        return;
-      }
-    }
-
-    // Check if product already exists in list
-    // For IN mode: match by barcode + lot + expire_date
-    // For OUT mode: match by barcode only
-    const existingIndex = items.findIndex((item) => {
-      if (item.barcode !== barcodeToUse) return false;
-      if (mode === 'IN') {
-        return item.lot === currentLot.trim() && item.expire_date === currentExpireDate;
-      }
-      return true; // OUT mode: match by barcode only
-    });
-
-    if (existingIndex !== -1) {
-      // Merge quantities for existing item
-      const existingItem = items[existingIndex];
-      const newQuantity = existingItem.quantity + currentQuantity;
-
-      // For OUT mode, validate total quantity doesn't exceed stock
-      if (mode === 'OUT' && productInfo.remaining_quantity < newQuantity) {
-        setSubmitError(`Insufficient stock. Available: ${productInfo.remaining_quantity}, Total requested: ${newQuantity}`);
-        return;
-      }
-
-      setItems((prev) =>
-        prev.map((item, index) =>
-          index === existingIndex
-            ? {
-                ...item,
-                quantity: newQuantity,
-              }
-            : item
-        )
-      );
-      showToast(`${productInfo.product_name} quantity updated`);
-    } else {
-      // Add new item
-      const newItem: StockFormItem = {
-        barcode: barcodeToUse,
-        product_name: productInfo.product_name,
-        quantity: currentQuantity,
-        remaining_quantity: productInfo.remaining_quantity,
-      };
-
-      // For IN mode, require lot and expire_date
-      if (mode === 'IN') {
-        if (!currentLot.trim()) {
-          setSubmitError('Lot number is required');
+      // For OUT mode, check stock availability
+      if (mode === "OUT") {
+        if (productInfo.remaining_quantity <= 0) {
+          setSubmitError(
+            `Stock is insufficient for ${productInfo.product_name}. Remaining quantity is ${productInfo.remaining_quantity}.`
+          );
           return;
         }
-        if (!currentExpireDate.trim()) {
-          setSubmitError('Expire date is required');
+        if (currentQuantity > productInfo.remaining_quantity) {
+          setSubmitError(
+            `Insufficient stock. Available: ${productInfo.remaining_quantity}, Requested: ${currentQuantity}`
+          );
           return;
         }
-        newItem.lot = currentLot.trim();
-        newItem.expire_date = currentExpireDate;
       }
 
-      setItems((prev) => [...prev, newItem]);
-      showToast(`${productInfo.product_name} added to list`);
-    }
+      // Check if product already exists in list
+      // For IN mode: match by barcode + lot + expire_date (both optional)
+      // For OUT mode: match by barcode only
+      const existingIndex = items.findIndex((item) => {
+        if (item.barcode !== barcodeToUse) return false;
+        if (mode === "IN") {
+          // Match by lot and expire_date (both must match if either is provided)
+          const currentLotTrimmed = currentLot.trim();
+          const itemLot = item.lot?.trim() || "";
+          const lotMatches = (!currentLotTrimmed && !itemLot) || (itemLot === currentLotTrimmed);
+          const expireMatches = (!currentExpireDate && !item.expire_date) || (item.expire_date === currentExpireDate);
+          return lotMatches && expireMatches;
+        }
+        return true; // OUT mode: match by barcode only
+      });
 
-    // Reset input fields
-    setBarcodeInput('');
-    setCurrentQuantity(1);
-    setCurrentLot('');
-    setCurrentExpireDate('');
-  }, [barcodeInput, currentQuantity, currentLot, currentExpireDate, items, mode, fetchProductInfo, showToast]);
+      if (existingIndex !== -1) {
+        // Merge quantities for existing item
+        const existingItem = items[existingIndex];
+        const newQuantity = existingItem.quantity + currentQuantity;
+
+        // For OUT mode, validate total quantity doesn't exceed stock
+        if (mode === "OUT" && productInfo.remaining_quantity < newQuantity) {
+          setSubmitError(
+            `Insufficient stock. Available: ${productInfo.remaining_quantity}, Total requested: ${newQuantity}`
+          );
+          return;
+        }
+
+        setItems((prev) =>
+          prev.map((item, index) =>
+            index === existingIndex
+              ? {
+                  ...item,
+                  quantity: newQuantity,
+                }
+              : item
+          )
+        );
+        showToast(`${productInfo.product_name} quantity updated`);
+      } else {
+        // Add new item
+        const newItem: StockFormItem = {
+          barcode: barcodeToUse,
+          product_name: productInfo.product_name,
+          quantity: currentQuantity,
+          remaining_quantity: productInfo.remaining_quantity,
+        };
+
+        // For IN mode, set lot and expire_date if provided (optional)
+        if (mode === "IN") {
+          if (currentLot.trim()) {
+            newItem.lot = currentLot.trim();
+          }
+          if (currentExpireDate.trim()) {
+            newItem.expire_date = currentExpireDate;
+          }
+        }
+
+        setItems((prev) => {
+          const newItems = [...prev, newItem];
+          // Set default expire date state for new item
+          if (mode === "IN") {
+            const newIndex = newItems.length - 1;
+            setItemHasExpireDate((prevMap) => {
+              const newMap = new Map(prevMap);
+              // Default to true if expire_date is provided, false otherwise
+              newMap.set(newIndex, !!newItem.expire_date);
+              return newMap;
+            });
+          }
+          return newItems;
+        });
+        showToast(`${productInfo.product_name} added to list`);
+      }
+
+      // Reset input fields
+      setBarcodeInput("");
+      setCurrentQuantity(1);
+      setCurrentLot("");
+      setCurrentExpireDate("");
+    },
+    [
+      barcodeInput,
+      currentQuantity,
+      currentLot,
+      currentExpireDate,
+      items,
+      mode,
+      fetchProductInfo,
+      showToast,
+    ]
+  );
 
   // Handle product creation success - retry adding to list
   const handleProductCreated = useCallback(async () => {
     const barcodeToRetry = pendingBarcode;
     setShowAddProductModal(false);
-    setPendingBarcode('');
-    
+    setPendingBarcode("");
+
     if (!barcodeToRetry) return;
-    
+
     // Retry adding to list (will fetch product info again, which should now succeed)
     await handleAddToList(barcodeToRetry);
   }, [pendingBarcode, handleAddToList]);
@@ -255,31 +319,126 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
   // Handle remove item
   const handleRemoveItem = useCallback((index: number) => {
     setItems((prev) => prev.filter((_, i) => i !== index));
+    
+    // Clean up state for removed item and reindex remaining items
+    setItemHasExpireDate((prevMap) => {
+      const newMap = new Map<number, boolean>();
+      prevMap.forEach((value, key) => {
+        if (key < index) {
+          newMap.set(key, value);
+        } else if (key > index) {
+          newMap.set(key - 1, value);
+        }
+        // Skip the removed index
+      });
+      return newMap;
+    });
+    
+    setLotValidationErrors((prev) => {
+      const newSet = new Set<number>();
+      prev.forEach((idx) => {
+        if (idx < index) {
+          newSet.add(idx);
+        } else if (idx > index) {
+          newSet.add(idx - 1);
+        }
+        // Skip the removed index
+      });
+      return newSet;
+    });
+    
+    setExpireDateValidationErrors((prev) => {
+      const newSet = new Set<number>();
+      prev.forEach((idx) => {
+        if (idx < index) {
+          newSet.add(idx);
+        } else if (idx > index) {
+          newSet.add(idx - 1);
+        }
+        // Skip the removed index
+      });
+      return newSet;
+    });
   }, []);
 
   // Handle quantity change
-  const handleQuantityChange = useCallback((index: number, newQuantity: number) => {
-    if (newQuantity <= 0) return;
+  const handleQuantityChange = useCallback(
+    (index: number, newQuantity: number) => {
+      if (newQuantity <= 0) return;
 
-    const item = items[index];
+      const item = items[index];
 
-    // For OUT mode, validate quantity doesn't exceed remaining stock
-    if (mode === 'OUT' && item.remaining_quantity !== undefined && newQuantity > item.remaining_quantity) {
-      setSubmitError(`Insufficient stock. Available: ${item.remaining_quantity}`);
-      return;
-    }
+      // For OUT mode, validate quantity doesn't exceed remaining stock
+      if (
+        mode === "OUT" &&
+        item.remaining_quantity !== undefined &&
+        newQuantity > item.remaining_quantity
+      ) {
+        setSubmitError(
+          `Insufficient stock. Available: ${item.remaining_quantity}`
+        );
+        return;
+      }
 
-    setItems((prev) =>
-      prev.map((item, i) => (i === index ? { ...item, quantity: newQuantity } : item))
-    );
-  }, [items, mode]);
+      setItems((prev) =>
+        prev.map((item, i) =>
+          i === index ? { ...item, quantity: newQuantity } : item
+        )
+      );
+    },
+    [items, mode]
+  );
 
   // Handle lot/expire change for IN mode
   const handleItemFieldChange = useCallback(
-    (index: number, field: 'lot' | 'expire_date', value: string) => {
+    (index: number, field: "lot" | "expire_date", value: string) => {
       setItems((prev) =>
-        prev.map((item, i) => (i === index ? { ...item, [field]: value } : item))
+        prev.map((item, i) =>
+          i === index ? { ...item, [field]: value } : item
+        )
       );
+      // Clear validation error for this item when user starts typing
+      if (field === "lot") {
+        setLotValidationErrors((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(index);
+          return newSet;
+        });
+      } else if (field === "expire_date") {
+        setExpireDateValidationErrors((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(index);
+          return newSet;
+        });
+      }
+    },
+    []
+  );
+
+  // Handle expire date radio button change
+  const handleExpireDateToggle = useCallback(
+    (index: number, hasExpireDate: boolean) => {
+      setItemHasExpireDate((prev) => {
+        const newMap = new Map(prev);
+        newMap.set(index, hasExpireDate);
+        return newMap;
+      });
+      
+      // Clear validation error when radio button changes
+      setExpireDateValidationErrors((prev) => {
+        const newSet = new Set(prev);
+        newSet.delete(index);
+        return newSet;
+      });
+      
+      // If "does not have an expiration date" is selected, set expire_date to undefined (will be converted to null on submit)
+      if (!hasExpireDate) {
+        setItems((prev) =>
+          prev.map((item, i) =>
+            i === index ? { ...item, expire_date: undefined } : item
+          )
+        );
+      }
     },
     []
   );
@@ -288,21 +447,107 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
   const handleConfirm = useCallback(async () => {
     if (items.length === 0) return;
 
+    // Validate lot numbers and expire dates for IN mode
+    if (mode === "IN") {
+      const lotErrorIndices = new Set<number>();
+      const expireDateErrorIndices = new Set<number>();
+      
+      items.forEach((item, index) => {
+        // Validate lot number
+        if (!item.lot || item.lot.trim() === "") {
+          lotErrorIndices.add(index);
+        }
+        
+        // Validate expire date if "has an expiration date" is selected
+        const hasExpireDate = itemHasExpireDate.get(index);
+        // Check if hasExpireDate is explicitly true (not undefined or false)
+        if (hasExpireDate === true) {
+          // Get expire_date value - input type="date" returns empty string if not selected
+          const expireDate = item.expire_date;
+          
+          // Check if expire_date is missing, empty, or invalid
+          if (!expireDate || 
+              typeof expireDate !== 'string' || 
+              expireDate.trim() === "" || 
+              expireDate === "dd/mm/yyyy" || 
+              expireDate === "mm/dd/yyyy") {
+            expireDateErrorIndices.add(index);
+          } else {
+            // Validate date format (YYYY-MM-DD) - required format for input type="date"
+            const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+            const trimmedDate = expireDate.trim();
+            if (!dateRegex.test(trimmedDate)) {
+              expireDateErrorIndices.add(index);
+            } else {
+              // Validate date is valid (not invalid date like 2025-13-45)
+              const date = new Date(trimmedDate + 'T00:00:00'); // Add time to avoid timezone issues
+              if (isNaN(date.getTime())) {
+                expireDateErrorIndices.add(index);
+              } else {
+                // Additional check: ensure the parsed date matches the input string
+                // This catches cases where date might be parsed incorrectly
+                const [year, month, day] = trimmedDate.split('-').map(Number);
+                if (date.getFullYear() !== year || 
+                    date.getMonth() + 1 !== month || 
+                    date.getDate() !== day) {
+                  expireDateErrorIndices.add(index);
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // Set errors if any found
+      if (lotErrorIndices.size > 0 || expireDateErrorIndices.size > 0) {
+        setLotValidationErrors(lotErrorIndices);
+        setExpireDateValidationErrors(expireDateErrorIndices);
+        
+        let errorMessage = "";
+        if (lotErrorIndices.size > 0 && expireDateErrorIndices.size > 0) {
+          errorMessage = "Please fill in the lot number and expiration date for all items before submitting.";
+        } else if (lotErrorIndices.size > 0) {
+          errorMessage = "Please fill in the lot number for all items before submitting.";
+        } else if (expireDateErrorIndices.size > 0) {
+          errorMessage = "Please fill in a valid expiration date for all items with expiration date enabled.";
+        }
+        
+        setSubmitError(errorMessage);
+        return; // Don't call API if validation fails
+      }
+    }
+
+    // Clear validation errors if validation passes
+    setLotValidationErrors(new Set());
+    setExpireDateValidationErrors(new Set());
     setSubmitting(true);
     setSubmitError(null);
 
     try {
-      await onSubmit(items);
+      // Convert expire_date: if "ไม่มีวันหมดอายุ" is selected, set to null
+      const itemsToSubmit: StockFormItem[] = items.map((item, index) => {
+        const hasExpireDate = itemHasExpireDate.get(index);
+        return {
+          ...item,
+          expire_date: hasExpireDate === false ? null : item.expire_date,
+        };
+      });
+      
+      await onSubmit(itemsToSubmit);
 
       // Success: clear list
       setItems([]);
-      setBarcodeInput('');
+      setBarcodeInput("");
       setCurrentQuantity(1);
-      setCurrentLot('');
-      setCurrentExpireDate('');
-      showToast(mode === 'OUT' ? 'All items used successfully!' : 'All items added successfully!');
+      setCurrentLot("");
+      setCurrentExpireDate("");
+      showToast(
+        mode === "OUT"
+          ? "All items used successfully!"
+          : "All items added successfully!"
+      );
     } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : 'An error occurred');
+      setSubmitError(err instanceof Error ? err.message : "An error occurred");
     } finally {
       setSubmitting(false);
     }
@@ -312,7 +557,7 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
   const getTodayDate = () => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split('T')[0];
+    return tomorrow.toISOString().split("T")[0];
   };
 
   return (
@@ -350,7 +595,10 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
         {/* Barcode Input Section */}
         <div className="bg-gray-50 rounded-lg p-4 space-y-3">
           <div>
-            <label htmlFor="barcode-input" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="barcode-input"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Barcode
             </label>
             <div className="flex gap-2">
@@ -361,7 +609,7 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
                 value={barcodeInput}
                 onChange={(e) => setBarcodeInput(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !scanning && !fetchingProduct) {
+                  if (e.key === "Enter" && !scanning && !fetchingProduct) {
                     e.preventDefault();
                     handleAddToList();
                   }
@@ -370,17 +618,11 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
                 placeholder="Scan or enter barcode"
                 disabled={submitting || scanning || fetchingProduct}
               />
-              <button
-                type="button"
-                onClick={scanning ? stopScanning : startScanning}
-                disabled={submitting || fetchingProduct}
-                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition disabled:opacity-50 disabled:cursor-not-allowed font-medium whitespace-nowrap"
-              >
-                {scanning ? 'Stop Scan' : 'Scan'}
-              </button>
             </div>
             {fetchingProduct && (
-              <p className="mt-1 text-sm text-gray-500">Fetching product info...</p>
+              <p className="mt-1 text-sm text-gray-500">
+                Fetching product info...
+              </p>
             )}
 
             {/* Camera Preview (when scanning) */}
@@ -406,7 +648,10 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
 
           {/* Quantity Input (for adding new items) */}
           <div>
-            <label htmlFor="quantity-input" className="block text-sm font-medium text-gray-700 mb-1">
+            <label
+              htmlFor="quantity-input"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
               Quantity
             </label>
             <input
@@ -415,51 +660,21 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
               min="1"
               step="1"
               value={currentQuantity}
-              onChange={(e) => setCurrentQuantity(parseInt(e.target.value) || 1)}
+              onChange={(e) =>
+                setCurrentQuantity(parseInt(e.target.value) || 1)
+              }
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
               disabled={submitting || scanning || fetchingProduct}
             />
           </div>
 
-          {/* Lot and Expire Date (IN mode only, for new items) */}
-          {mode === 'IN' && (
-            <>
-              <div>
-                <label htmlFor="lot-input" className="block text-sm font-medium text-gray-700 mb-1">
-                  Lot Number
-                </label>
-                <input
-                  type="text"
-                  id="lot-input"
-                  value={currentLot}
-                  onChange={(e) => setCurrentLot(e.target.value)}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                  placeholder="Enter lot number"
-                  disabled={submitting || scanning || fetchingProduct}
-                />
-              </div>
-              <div>
-                <label htmlFor="expire-date-input" className="block text-sm font-medium text-gray-700 mb-1">
-                  Expire Date
-                </label>
-                <input
-                  type="date"
-                  id="expire-date-input"
-                  value={currentExpireDate}
-                  onChange={(e) => setCurrentExpireDate(e.target.value)}
-                  min={getTodayDate()}
-                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
-                  disabled={submitting || scanning || fetchingProduct}
-                />
-              </div>
-            </>
-          )}
-
           {/* Add to List Button */}
           <button
             type="button"
             onClick={() => handleAddToList()}
-            disabled={!barcodeInput.trim() || submitting || scanning || fetchingProduct}
+            disabled={
+              !barcodeInput.trim() || submitting || scanning || fetchingProduct
+            }
             className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition disabled:opacity-50 disabled:cursor-not-allowed font-medium"
           >
             Add to List
@@ -469,7 +684,9 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
         {/* Items List */}
         {items.length > 0 && (
           <div className="space-y-3">
-            <h3 className="text-lg font-semibold text-gray-900">Items ({items.length})</h3>
+            <h3 className="text-lg font-semibold text-gray-900">
+              Items ({items.length})
+            </h3>
             <div className="space-y-2">
               {items.map((item, index) => (
                 <div
@@ -478,13 +695,20 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
-                      <div className="font-medium text-gray-900">{item.product_name}</div>
-                      <div className="text-sm text-gray-500 mt-1 font-mono">{item.barcode}</div>
-                      {mode === 'OUT' && item.remaining_quantity !== undefined && item.remaining_quantity != null && (
-                        <div className="text-xs text-gray-500 mt-1">
-                          Available: {item.remaining_quantity.toLocaleString()} units
-                        </div>
-                      )}
+                      <div className="font-medium text-gray-900">
+                        {item.product_name}
+                      </div>
+                      <div className="text-sm text-gray-500 mt-1 font-mono">
+                        {item.barcode}
+                      </div>
+                      {mode === "OUT" &&
+                        item.remaining_quantity !== undefined &&
+                        item.remaining_quantity != null && (
+                          <div className="text-xs text-gray-500 mt-1">
+                            Available:{" "}
+                            {item.remaining_quantity.toLocaleString()} units
+                          </div>
+                        )}
                     </div>
                     <button
                       type="button"
@@ -520,14 +744,19 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
                         min="1"
                         step="1"
                         value={item.quantity}
-                        onChange={(e) => handleQuantityChange(index, parseInt(e.target.value) || 1)}
+                        onChange={(e) =>
+                          handleQuantityChange(
+                            index,
+                            parseInt(e.target.value) || 1
+                          )
+                        }
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-sm"
                         disabled={submitting}
                       />
                     </div>
 
                     {/* Lot and Expire Date (IN mode only, editable) */}
-                    {mode === 'IN' && (
+                    {mode === "IN" && (
                       <>
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
@@ -535,24 +764,80 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
                           </label>
                           <input
                             type="text"
-                            value={item.lot || ''}
-                            onChange={(e) => handleItemFieldChange(index, 'lot', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-sm"
+                            value={item.lot || ""}
+                            onChange={(e) =>
+                              handleItemFieldChange(
+                                index,
+                                "lot",
+                                e.target.value
+                              )
+                            }
+                            className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-sm ${
+                              lotValidationErrors.has(index)
+                                ? "border-red-300 bg-red-50"
+                                : "border-gray-300"
+                            }`}
                             disabled={submitting}
                           />
+                          {lotValidationErrors.has(index) && (
+                            <p className="mt-1 text-xs text-red-600">
+                              Lot number is required
+                            </p>
+                          )}
                         </div>
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-1">
                             Expire Date
                           </label>
-                          <input
-                            type="date"
-                            value={item.expire_date || ''}
-                            onChange={(e) => handleItemFieldChange(index, 'expire_date', e.target.value)}
-                            min={getTodayDate()}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-sm"
-                            disabled={submitting}
-                          />
+                          <div className="space-y-2">
+                            <div className="flex gap-4">
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name={`expire-date-${index}`}
+                                  checked={itemHasExpireDate.get(index) !== false}
+                                  onChange={() => handleExpireDateToggle(index, true)}
+                                  disabled={submitting}
+                                  className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="text-xs text-gray-700">has an expiration date</span>
+                              </label>
+                              <label className="flex items-center gap-2 cursor-pointer">
+                                <input
+                                  type="radio"
+                                  name={`expire-date-${index}`}
+                                  checked={itemHasExpireDate.get(index) === false}
+                                  onChange={() => handleExpireDateToggle(index, false)}
+                                  disabled={submitting}
+                                  className="w-4 h-4 text-blue-600 focus:ring-blue-500"
+                                />
+                                <span className="text-xs text-gray-700">does not have an expiration date</span>
+                              </label>
+                            </div>
+                            <input
+                              type="date"
+                              value={item.expire_date || ""}
+                              onChange={(e) =>
+                                handleItemFieldChange(
+                                  index,
+                                  "expire_date",
+                                  e.target.value
+                                )
+                              }
+                              min={getTodayDate()}
+                              className={`w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-sm disabled:bg-gray-100 disabled:cursor-not-allowed ${
+                                expireDateValidationErrors.has(index)
+                                  ? "border-red-300 bg-red-50"
+                                  : "border-gray-300"
+                              }`}
+                              disabled={submitting || itemHasExpireDate.get(index) === false}
+                            />
+                            {expireDateValidationErrors.has(index) && (
+                              <p className="mt-1 text-xs text-red-600">
+                                Expiration date is required and must be a valid date
+                              </p>
+                            )}
+                          </div>
                         </div>
                       </>
                     )}
@@ -573,9 +858,9 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
               onClick={handleConfirm}
               disabled={submitting || items.length === 0}
               className={`w-full ${
-                mode === 'OUT'
-                  ? 'bg-red-600 hover:bg-red-700 focus:ring-red-500'
-                  : 'bg-blue-600 hover:bg-blue-700 focus:ring-blue-500'
+                mode === "OUT"
+                  ? "bg-red-600 hover:bg-red-700 focus:ring-red-500"
+                  : "bg-blue-600 hover:bg-blue-700 focus:ring-blue-500"
               } text-white font-semibold py-3 px-6 rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 transition disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               {submitting ? (
@@ -600,10 +885,12 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     ></path>
                   </svg>
-                  {mode === 'OUT' ? 'Using Items...' : 'Adding Items...'}
+                  {mode === "OUT" ? "Using Items..." : "Adding Items..."}
                 </span>
+              ) : mode === "OUT" ? (
+                "Use All Items"
               ) : (
-                mode === 'OUT' ? 'Use All Items' : 'Confirm Stock In'
+                "Confirm Stock In"
               )}
             </button>
           </div>
@@ -616,11 +903,10 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
         isOpen={showAddProductModal}
         onClose={() => {
           setShowAddProductModal(false);
-          setPendingBarcode('');
+          setPendingBarcode("");
         }}
         onSuccess={handleProductCreated}
       />
     </>
   );
 }
-

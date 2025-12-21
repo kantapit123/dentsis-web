@@ -5,8 +5,6 @@ import apiClient from "../services/api";
 interface StockFormData {
   barcode: string;
   quantity: number;
-  lot?: string;
-  expire_date?: string;
 }
 
 interface ProductInfo {
@@ -26,8 +24,6 @@ export default function StockForm({ mode, onSubmit }: StockFormProps) {
   const [formData, setFormData] = useState<StockFormData>({
     barcode: "",
     quantity: 1,
-    lot: "",
-    expire_date: "",
   });
 
   // Product info (auto-filled after barcode scan/entry)
@@ -238,24 +234,6 @@ export default function StockForm({ mode, onSubmit }: StockFormProps) {
       errors.quantity = "Quantity must be greater than 0";
     }
 
-    // For IN mode, validate lot and expire_date
-    if (mode === "IN") {
-      // if (!formData.lot?.trim()) {
-      //   errors.lot = "Lot number is required";
-      // }
-
-      if (formData.expire_date) {
-        const expireDate = new Date(formData.expire_date);
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        expireDate.setHours(0, 0, 0, 0);
-
-        if (expireDate <= today) {
-          errors.expire_date = "Expire date must be in the future";
-        }
-      }
-    }
-
     // For OUT mode, validate product exists and stock is sufficient
     if (mode === "OUT") {
       if (!productName) {
@@ -301,8 +279,6 @@ export default function StockForm({ mode, onSubmit }: StockFormProps) {
       setFormData({
         barcode: "",
         quantity: 1,
-        lot: "",
-        expire_date: "",
       });
       setProductName("");
       setFormErrors({});
@@ -317,13 +293,6 @@ export default function StockForm({ mode, onSubmit }: StockFormProps) {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  // Get today's date in YYYY-MM-DD format for date input min attribute
-  const getTodayDate = () => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    return tomorrow.toISOString().split("T")[0];
   };
 
   // Get button text and style based on mode
@@ -515,60 +484,6 @@ export default function StockForm({ mode, onSubmit }: StockFormProps) {
             </p>
           )}
       </div>
-
-      {/* Lot Number Field (IN mode only) */}
-      {mode === "IN" && (
-        <div>
-          <label
-            htmlFor="lot"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Lot Number <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="text"
-            id="lot"
-            value={formData.lot || ""}
-            onChange={(e) => handleFormChange("lot", e.target.value)}
-            className={`w-full px-4 py-2 border ${
-              formErrors.lot ? "border-red-300" : "border-gray-300"
-            } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition`}
-            placeholder="Enter lot number"
-            disabled={submitting || scanning || fetchingProduct}
-          />
-          {formErrors.lot && (
-            <p className="mt-1 text-sm text-red-600">{formErrors.lot}</p>
-          )}
-        </div>
-      )}
-
-      {/* Expire Date Field (IN mode only) */}
-      {mode === "IN" && (
-        <div>
-          <label
-            htmlFor="expire_date"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Expire Date <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="date"
-            id="expire_date"
-            value={formData.expire_date || ""}
-            onChange={(e) => handleFormChange("expire_date", e.target.value)}
-            min={getTodayDate()}
-            className={`w-full px-4 py-2 border ${
-              formErrors.expire_date ? "border-red-300" : "border-gray-300"
-            } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition`}
-            disabled={submitting || scanning || fetchingProduct}
-          />
-          {formErrors.expire_date && (
-            <p className="mt-1 text-sm text-red-600">
-              {formErrors.expire_date}
-            </p>
-          )}
-        </div>
-      )}
 
       {/* Submit Button */}
       <div className="pt-4">
