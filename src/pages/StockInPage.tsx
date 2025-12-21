@@ -1,31 +1,49 @@
 import { useCallback } from 'react';
 import { apiFetch } from '../utils/mockApi';
-import StockForm from '../components/StockForm';
+import StockFormList from '../components/StockFormList';
 
-interface StockFormData {
+interface StockFormItem {
   barcode: string;
+  product_name: string;
   quantity: number;
   lot?: string;
   expire_date?: string;
+  remaining_quantity?: number;
 }
 
-interface StockInError {
+interface BulkStockInResponse {
+  success: boolean;
   message: string;
+  results: Array<{
+    barcode: string;
+    product_name: string;
+    quantity: number;
+    remaining_quantity: number;
+  }>;
+  errors?: string[];
+}
+
+interface BulkStockInError {
+  message: string;
+  errors?: string[];
+  results?: any[];
 }
 
 export default function StockInPage() {
-  // Handle form submit
-  const handleSubmit = useCallback(async (data: StockFormData) => {
-    const response = await apiFetch('/api/stock/in', {
+  // Handle bulk form submit
+  const handleSubmit = useCallback(async (items: StockFormItem[]) => {
+    const response = await apiFetch('/api/stock/in/bulk', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        barcode: data.barcode.trim(),
-        quantity: data.quantity,
-        lot: data.lot?.trim(),
-        expire_date: data.expire_date,
+        items: items.map((item) => ({
+          barcode: item.barcode.trim(),
+          quantity: item.quantity,
+          lot: item.lot?.trim(),
+          expire_date: item.expire_date,
+        })),
       }),
     });
 
@@ -37,8 +55,11 @@ export default function StockInPage() {
         throw new Error(`API endpoint not found or server error (${response.status})`);
       }
       try {
-        const errorData: StockInError = await response.json();
-        throw new Error(errorData.message || `Failed to add stock: ${response.statusText}`);
+        const errorData: BulkStockInError = await response.json();
+        const errorMessage = errorData.errors && errorData.errors.length > 0
+          ? `${errorData.message}: ${errorData.errors.join('; ')}`
+          : errorData.message || `Failed to add stock: ${response.statusText}`;
+        throw new Error(errorMessage);
       } catch (parseErr) {
         throw new Error(`Failed to add stock: ${response.status} ${response.statusText}`);
       }
@@ -48,7 +69,10 @@ export default function StockInPage() {
       throw new Error('API endpoint returned non-JSON response');
     }
 
-    await response.json();
+    const result: BulkStockInResponse = await response.json();
+    if (!result.success) {
+      throw new Error(result.message || 'Failed to add stock');
+    }
   }, []);
 
   return (
@@ -62,7 +86,7 @@ export default function StockInPage() {
 
         {/* Form */}
         <div className="bg-white rounded-lg shadow-sm p-6">
-          <StockForm mode="IN" onSubmit={handleSubmit} />
+          <StockFormList mode="IN" onSubmit={handleSubmit} />
         </div>
       </div>
     </div>

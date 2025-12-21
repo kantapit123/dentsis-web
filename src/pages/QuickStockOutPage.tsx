@@ -1,34 +1,47 @@
 import { useCallback } from 'react';
 import { apiFetch } from '../utils/mockApi';
-import StockForm from '../components/StockForm';
+import StockFormList from '../components/StockFormList';
 
-interface StockFormData {
+interface StockFormItem {
   barcode: string;
+  product_name: string;
   quantity: number;
   lot?: string;
   expire_date?: string;
+  remaining_quantity?: number;
 }
 
-interface StockOutResponse {
-  product_name: string;
-  remaining_quantity: number;
-}
-
-interface StockOutError {
+interface BulkStockOutResponse {
+  success: boolean;
   message: string;
+  results: Array<{
+    barcode: string;
+    product_name: string;
+    quantity: number;
+    remaining_quantity: number;
+  }>;
+  errors?: string[];
+}
+
+interface BulkStockOutError {
+  message: string;
+  errors?: string[];
+  results?: any[];
 }
 
 export default function QuickStockOutPage() {
-  // Handle form submit
-  const handleSubmit = useCallback(async (data: StockFormData) => {
-    const response = await apiFetch('/api/stock/out', {
+  // Handle bulk form submit
+  const handleSubmit = useCallback(async (items: StockFormItem[]) => {
+    const response = await apiFetch('/api/stock/out/bulk', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        barcode: data.barcode.trim(),
-        quantity: data.quantity,
+        items: items.map((item) => ({
+          barcode: item.barcode.trim(),
+          quantity: item.quantity,
+        })),
       }),
     });
 
@@ -40,8 +53,11 @@ export default function QuickStockOutPage() {
         throw new Error(`API endpoint not found or server error (${response.status})`);
       }
       try {
-        const errorData: StockOutError = await response.json();
-        throw new Error(errorData.message || `Failed to use stock: ${response.statusText}`);
+        const errorData: BulkStockOutError = await response.json();
+        const errorMessage = errorData.errors && errorData.errors.length > 0
+          ? `${errorData.message}: ${errorData.errors.join('; ')}`
+          : errorData.message || `Failed to use stock: ${response.statusText}`;
+        throw new Error(errorMessage);
       } catch (parseErr) {
         throw new Error(`Failed to use stock: ${response.status} ${response.statusText}`);
       }
@@ -51,10 +67,10 @@ export default function QuickStockOutPage() {
       throw new Error('API endpoint returned non-JSON response');
     }
 
-    const result: StockOutResponse = await response.json();
-    
-    // Return remaining quantity so StockForm can display it
-    return { remaining_quantity: result.remaining_quantity };
+    const result: BulkStockOutResponse = await response.json();
+    if (!result.success) {
+      throw new Error(result.message || 'Failed to use stock');
+    }
   }, []);
 
   return (
@@ -68,7 +84,7 @@ export default function QuickStockOutPage() {
 
         {/* Form */}
         <div className="bg-white rounded-lg shadow-sm p-6">
-          <StockForm mode="OUT" onSubmit={handleSubmit} />
+          <StockFormList mode="OUT" onSubmit={handleSubmit} />
         </div>
       </div>
     </div>

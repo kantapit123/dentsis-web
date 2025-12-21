@@ -442,6 +442,183 @@ export async function mockFetch(url: string, options?: RequestInit): Promise<Res
         status = 200;
       }
     }
+  } else if (pathname === '/api/stock/in/bulk' && options?.method === 'POST') {
+    // Mock bulk stock in - add multiple items at once
+    const body = JSON.parse(options.body as string);
+    const { items } = body;
+    
+    if (!Array.isArray(items) || items.length === 0) {
+      status = 400;
+      mockData = {
+        message: 'Items array is required and must not be empty',
+      };
+    } else {
+      const results: any[] = [];
+      const errors: string[] = [];
+      
+      for (const item of items) {
+        const { barcode, quantity, lot, expire_date } = item;
+        
+        if (!barcode || !quantity || !lot || !expire_date) {
+          errors.push(`Item with barcode ${barcode || 'unknown'} is missing required fields`);
+          continue;
+        }
+        
+        // Validate expire date is in the future
+        const expireDate = new Date(expire_date);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        expireDate.setHours(0, 0, 0, 0);
+        
+        if (expireDate <= today) {
+          errors.push(`Item ${barcode} has invalid expire date (must be in future)`);
+          continue;
+        }
+        
+        // Find or create product
+        let productIndex = stockData.findIndex((product) => product.barcode === barcode);
+        
+        if (productIndex === -1) {
+          // Create new product (default values)
+          const newProduct: MockProduct = {
+            barcode: barcode,
+            product_name: `Product ${barcode}`,
+            remaining_quantity: 0,
+            min_stock: 5,
+            unit: 'unit',
+          };
+          stockData.push(newProduct);
+          productIndex = stockData.length - 1;
+        }
+        
+        const product = stockData[productIndex];
+        
+        // Update stock quantity
+        stockData[productIndex] = {
+          ...product,
+          remaining_quantity: product.remaining_quantity + quantity,
+        };
+        
+        // Add batch record
+        stockBatches.push({
+          id: `batch-${Date.now()}-${Math.random()}`,
+          barcode: barcode,
+          lot: lot,
+          expire_date: expire_date,
+          quantity: quantity,
+        });
+        
+        // Add movement record
+        stockMovements.unshift({
+          id: `mov-${Date.now()}-${Math.random()}`,
+          barcode: barcode,
+          product_name: product.product_name,
+          type: 'IN',
+          quantity: quantity,
+          created_at: new Date().toISOString(),
+        });
+        
+        results.push({
+          barcode,
+          product_name: product.product_name,
+          quantity,
+          remaining_quantity: stockData[productIndex].remaining_quantity,
+        });
+      }
+      
+      if (errors.length > 0) {
+        status = 400;
+        mockData = {
+          message: 'Some items failed to process',
+          errors,
+          results,
+        };
+      } else {
+        mockData = {
+          success: true,
+          message: `${results.length} item(s) added successfully`,
+          results,
+        };
+        status = 200;
+      }
+    }
+  } else if (pathname === '/api/stock/out/bulk' && options?.method === 'POST') {
+    // Mock bulk stock out - deduct multiple items at once
+    const body = JSON.parse(options.body as string);
+    const { items } = body;
+    
+    if (!Array.isArray(items) || items.length === 0) {
+      status = 400;
+      mockData = {
+        message: 'Items array is required and must not be empty',
+      };
+    } else {
+      const results: any[] = [];
+      const errors: string[] = [];
+      
+      for (const item of items) {
+        const { barcode, quantity } = item;
+        
+        if (!barcode || !quantity) {
+          errors.push(`Item with barcode ${barcode || 'unknown'} is missing required fields`);
+          continue;
+        }
+        
+        const productIndex = stockData.findIndex((product) => product.barcode === barcode);
+        
+        if (productIndex === -1) {
+          errors.push(`Product with barcode ${barcode} not found`);
+          continue;
+        }
+        
+        const product = stockData[productIndex];
+        
+        if (product.remaining_quantity < quantity) {
+          errors.push(`Insufficient stock for ${product.product_name}. Available: ${product.remaining_quantity}, Requested: ${quantity}`);
+          continue;
+        }
+        
+        // Update stock quantity
+        const newQuantity = product.remaining_quantity - quantity;
+        stockData[productIndex] = {
+          ...product,
+          remaining_quantity: newQuantity,
+        };
+        
+        // Add movement record
+        stockMovements.unshift({
+          id: `mov-${Date.now()}-${Math.random()}`,
+          barcode: barcode,
+          product_name: product.product_name,
+          type: 'OUT',
+          quantity: quantity,
+          created_at: new Date().toISOString(),
+        });
+        
+        results.push({
+          barcode,
+          product_name: product.product_name,
+          quantity,
+          remaining_quantity: newQuantity,
+        });
+      }
+      
+      if (errors.length > 0) {
+        status = 400;
+        mockData = {
+          message: 'Some items failed to process',
+          errors,
+          results,
+        };
+      } else {
+        mockData = {
+          success: true,
+          message: `${results.length} item(s) used successfully`,
+          results,
+        };
+        status = 200;
+      }
+    }
   } else {
     // Unknown endpoint - return 404
     status = 404;
