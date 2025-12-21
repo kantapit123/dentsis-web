@@ -153,6 +153,76 @@ export async function mockFetch(url: string, options?: RequestInit): Promise<Res
         status = 200;
       }
     }
+  } else if (pathname === '/api/stock/in' && options?.method === 'POST') {
+    // Mock stock in - add quantity to product
+    const body = JSON.parse(options.body as string);
+    const { barcode, quantity, lot, expire_date } = body;
+    
+    if (!barcode) {
+      status = 400;
+      mockData = {
+        message: 'Barcode is required',
+      };
+    } else if (!quantity || quantity <= 0) {
+      status = 400;
+      mockData = {
+        message: 'Quantity must be greater than 0',
+      };
+    } else if (!lot) {
+      status = 400;
+      mockData = {
+        message: 'Lot number is required',
+      };
+    } else if (!expire_date) {
+      status = 400;
+      mockData = {
+        message: 'Expire date is required',
+      };
+    } else {
+      // Validate expire date is in the future
+      const expireDate = new Date(expire_date);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      expireDate.setHours(0, 0, 0, 0);
+
+      if (expireDate <= today) {
+        status = 400;
+        mockData = {
+          message: 'Expire date must be in the future',
+        };
+      } else {
+        let productIndex = stockData.findIndex((product) => product.barcode === barcode);
+        
+        if (productIndex === -1) {
+          // Create new product if it doesn't exist
+          const newProduct = {
+            barcode: barcode,
+            product_name: `Product ${barcode}`, // In real system, this would come from product lookup
+            remaining_quantity: quantity,
+          };
+          stockData.push(newProduct);
+          productIndex = stockData.length - 1;
+        } else {
+          // Add to existing product
+          stockData[productIndex] = {
+            ...stockData[productIndex],
+            remaining_quantity: stockData[productIndex].remaining_quantity + quantity,
+          };
+        }
+        
+        const product = stockData[productIndex];
+        mockData = {
+          id: `batch-${Date.now()}`,
+          barcode: product.barcode,
+          product_name: product.product_name,
+          quantity: quantity,
+          lot: lot,
+          expire_date: expire_date,
+          message: 'Stock added successfully',
+        };
+        status = 201;
+      }
+    }
   } else if (pathname === '/api/stock/out' && options?.method === 'POST') {
     // Mock stock out - deduct quantity from product
     const body = JSON.parse(options.body as string);

@@ -4,9 +4,10 @@ import './index.css'
 import PatientListPage from './pages/PatientListPage.tsx'
 import TodayAppointmentsPage from './pages/TodayAppointmentsPage.tsx'
 import QuickStockOutPage from './pages/QuickStockOutPage.tsx'
+import StockInPage from './pages/StockInPage.tsx'
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<'patients' | 'appointments' | 'stock-out'>('appointments');
+  const [currentPage, setCurrentPage] = useState<'patients' | 'appointments' | 'stock-out' | 'stock-in'>('appointments');
 
   return (
     <div>
@@ -43,6 +44,16 @@ function App() {
           >
             Quick Stock Out
           </button>
+          <button
+            onClick={() => setCurrentPage('stock-in')}
+            className={`px-4 py-2 rounded-lg font-medium transition ${
+              currentPage === 'stock-in'
+                ? 'bg-blue-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+            }`}
+          >
+            Stock In
+          </button>
         </div>
       </nav>
 
@@ -51,6 +62,8 @@ function App() {
         <PatientListPage />
       ) : currentPage === 'stock-out' ? (
         <QuickStockOutPage />
+      ) : currentPage === 'stock-in' ? (
+        <StockInPage />
       ) : (
         <TodayAppointmentsPage />
       )}
