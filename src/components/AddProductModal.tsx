@@ -1,6 +1,6 @@
-import { useState } from 'react';
-import { createProduct } from '../services/stock.api';
-import type { CreateProductRequest } from '../services/stock.api';
+import { useEffect, useState } from "react";
+import { createProduct } from "../services/stock.api";
+import type { CreateProductRequest } from "../services/stock.api";
 
 interface AddProductModalProps {
   barcode: string;
@@ -9,15 +9,30 @@ interface AddProductModalProps {
   onSuccess: () => void;
 }
 
-export default function AddProductModal({ barcode, isOpen, onClose, onSuccess }: AddProductModalProps) {
+export default function AddProductModal({
+  barcode,
+  isOpen,
+  onClose,
+  onSuccess,
+}: AddProductModalProps) {
   const [formData, setFormData] = useState<CreateProductRequest>({
     barcode: barcode,
-    name: '', 
-    unit: 'piece',
+    name: "",
+    unit: "piece",
     minStock: 0,
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+
+  // Update barcode when prop changes (when modal opens with new barcode)
+  useEffect(() => {
+    if (isOpen && barcode) {
+      setFormData((prev) => ({
+        ...prev,
+        barcode: barcode,
+      }));
+    }
+  }, [barcode, isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,13 +41,13 @@ export default function AddProductModal({ barcode, isOpen, onClose, onSuccess }:
     // Validate
     const newErrors: Record<string, string> = {};
     if (!formData.name.trim()) {
-      newErrors.name = 'Product name is required';
+      newErrors.name = "Product name is required";
     }
     if (!formData.unit.trim()) {
-      newErrors.unit = 'Unit is required';
+      newErrors.unit = "Unit is required";
     }
     if (formData.minStock !== undefined && formData.minStock < 0) {
-      newErrors.minStock = 'Min stock cannot be negative';
+      newErrors.minStock = "Min stock cannot be negative";
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -46,13 +61,16 @@ export default function AddProductModal({ barcode, isOpen, onClose, onSuccess }:
       // Reset form
       setFormData({
         barcode: barcode,
-        name: '',
-        unit: 'piece',
+        name: "",
+        unit: "piece",
         minStock: 0,
       });
       onSuccess();
     } catch (err: any) {
-      const errorMessage = err?.response?.data?.message || err?.message || 'Failed to create product';
+      const errorMessage =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Failed to create product";
       setErrors({ submit: errorMessage });
     } finally {
       setSubmitting(false);
@@ -66,14 +84,26 @@ export default function AddProductModal({ barcode, isOpen, onClose, onSuccess }:
       <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold text-gray-900">Add New Product</h2>
+            <h2 className="text-2xl font-bold text-gray-900">
+              Add New Product
+            </h2>
             <button
               onClick={onClose}
               className="text-gray-400 hover:text-gray-600 transition"
               disabled={submitting}
             >
-              <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
               </svg>
             </button>
           </div>
@@ -100,9 +130,11 @@ export default function AddProductModal({ barcode, isOpen, onClose, onSuccess }:
               <input
                 type="text"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, name: e.target.value })
+                }
                 className={`w-full px-4 py-2 border ${
-                  errors.name ? 'border-red-300' : 'border-gray-300'
+                  errors.name ? "border-red-300" : "border-gray-300"
                 } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition`}
                 placeholder="Enter product name"
                 disabled={submitting}
@@ -120,9 +152,11 @@ export default function AddProductModal({ barcode, isOpen, onClose, onSuccess }:
               <input
                 type="text"
                 value={formData.unit}
-                onChange={(e) => setFormData({ ...formData, unit: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, unit: e.target.value })
+                }
                 className={`w-full px-4 py-2 border ${
-                  errors.unit ? 'border-red-300' : 'border-gray-300'
+                  errors.unit ? "border-red-300" : "border-gray-300"
                 } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition`}
                 placeholder="e.g., piece, box, bottle"
                 disabled={submitting}
@@ -140,10 +174,15 @@ export default function AddProductModal({ barcode, isOpen, onClose, onSuccess }:
               <input
                 type="number"
                 min="0"
-                value={formData.minStock || ''}
-                onChange={(e) => setFormData({ ...formData, minStock: parseInt(e.target.value) || 0 })}
+                value={formData.minStock || ""}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    minStock: parseInt(e.target.value) || 0,
+                  })
+                }
                 className={`w-full px-4 py-2 border ${
-                  errors.minStock ? 'border-red-300' : 'border-gray-300'
+                  errors.minStock ? "border-red-300" : "border-gray-300"
                 } rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition`}
                 placeholder="0"
                 disabled={submitting}
@@ -175,7 +214,7 @@ export default function AddProductModal({ barcode, isOpen, onClose, onSuccess }:
                 disabled={submitting}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition disabled:opacity-50 disabled:cursor-not-allowed font-medium"
               >
-                {submitting ? 'Creating...' : 'Create Product'}
+                {submitting ? "Creating..." : "Create Product"}
               </button>
             </div>
           </form>
@@ -184,4 +223,3 @@ export default function AddProductModal({ barcode, isOpen, onClose, onSuccess }:
     </div>
   );
 }
-
