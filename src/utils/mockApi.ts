@@ -21,15 +21,76 @@ interface MockProduct {
   barcode: string;
   product_name: string;
   remaining_quantity: number;
+  min_stock: number;
+  unit: string;
+}
+
+interface MockStockBatch {
+  id: string;
+  barcode: string;
+  lot: string;
+  expire_date: string;
+  quantity: number;
+}
+
+interface MockStockMovement {
+  id: string;
+  barcode: string;
+  product_name: string;
+  type: 'IN' | 'OUT';
+  quantity: number;
+  created_at: string;
 }
 
 let stockData: MockProduct[] = [
-  { barcode: '1234567890123', product_name: 'Dental Floss 50m', remaining_quantity: 25 },
-  { barcode: '2345678901234', product_name: 'Toothbrush Soft', remaining_quantity: 15 },
-  { barcode: '3456789012345', product_name: 'Mouthwash 500ml', remaining_quantity: 8 },
-  { barcode: '4567890123456', product_name: 'Dental Paste', remaining_quantity: 0 },
-  { barcode: '5678901234567', product_name: 'Gloves Medium', remaining_quantity: 50 },
+  { barcode: '1234567890123', product_name: 'Dental Floss 50m', remaining_quantity: 25, min_stock: 20, unit: 'roll' },
+  { barcode: '2345678901234', product_name: 'Toothbrush Soft', remaining_quantity: 15, min_stock: 20, unit: 'piece' },
+  { barcode: '3456789012345', product_name: 'Mouthwash 500ml', remaining_quantity: 8, min_stock: 10, unit: 'bottle' },
+  { barcode: '4567890123456', product_name: 'Dental Paste', remaining_quantity: 0, min_stock: 5, unit: 'tube' },
+  { barcode: '5678901234567', product_name: 'Gloves Medium', remaining_quantity: 50, min_stock: 30, unit: 'pair' },
 ];
+
+// Mock stock batches for expiry tracking
+let stockBatches: MockStockBatch[] = [
+  { id: 'batch-1', barcode: '1234567890123', lot: 'LOT001', expire_date: '2025-12-31', quantity: 25 },
+  { id: 'batch-2', barcode: '2345678901234', lot: 'LOT002', expire_date: '2025-06-15', quantity: 15 },
+  { id: 'batch-3', barcode: '3456789012345', lot: 'LOT003', expire_date: getDateInDays(25), quantity: 8 }, // Near expiry
+  { id: 'batch-4', barcode: '4567890123456', lot: 'LOT004', expire_date: '2024-12-01', quantity: 0 },
+  { id: 'batch-5', barcode: '5678901234567', lot: 'LOT005', expire_date: '2026-03-20', quantity: 50 },
+  { id: 'batch-6', barcode: '3456789012345', lot: 'LOT006', expire_date: getDateInDays(15), quantity: 5 }, // Near expiry
+];
+
+// Mock stock movements (track IN/OUT operations)
+let stockMovements: MockStockMovement[] = [
+  { id: 'mov-1', barcode: '1234567890123', product_name: 'Dental Floss 50m', type: 'IN', quantity: 25, created_at: getDateHoursAgo(2) },
+  { id: 'mov-2', barcode: '2345678901234', product_name: 'Toothbrush Soft', type: 'IN', quantity: 15, created_at: getDateHoursAgo(5) },
+  { id: 'mov-3', barcode: '1234567890123', product_name: 'Dental Floss 50m', type: 'OUT', quantity: 1, created_at: getDateHoursAgo(1) },
+  { id: 'mov-4', barcode: '3456789012345', product_name: 'Mouthwash 500ml', type: 'OUT', quantity: 2, created_at: getDateDaysAgo(2) },
+  { id: 'mov-5', barcode: '5678901234567', product_name: 'Gloves Medium', type: 'IN', quantity: 50, created_at: getDateDaysAgo(3) },
+  { id: 'mov-6', barcode: '4567890123456', product_name: 'Dental Paste', type: 'OUT', quantity: 5, created_at: getDateDaysAgo(5) },
+];
+
+// Helper function to get date X hours ago (for testing)
+function getDateHoursAgo(hours: number): string {
+  const date = new Date();
+  date.setHours(date.getHours() - hours);
+  return date.toISOString();
+}
+
+// Helper function to get date X days ago (for testing)
+function getDateDaysAgo(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() - days);
+  date.setHours(12, 0, 0, 0); // Set to noon for consistency
+  return date.toISOString();
+}
+
+// Helper function to get date in X days from now (for testing near expiry)
+function getDateInDays(days: number): string {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  return date.toISOString().split('T')[0];
+}
 
 // Check if we should use mock API (set in environment or localStorage)
 const shouldUseMock = () => {
@@ -58,7 +119,99 @@ export async function mockFetch(url: string, options?: RequestInit): Promise<Res
   let status = 200;
 
   // Route to appropriate mock data
-  if (pathname === '/api/v1/appointments/today') {
+  if (pathname === '/api/stock/dashboard' && (!options?.method || options.method === 'GET')) {
+    // Calculate dashboard stats
+    const totalProducts = stockData.length;
+    const lowStockCount = stockData.filter((product) => product.remaining_quantity <= product.min_stock).length;
+    
+    // Calculate near expiry count (within 30 days)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const thirtyDaysFromNow = new Date(today);
+    thirtyDaysFromNow.setDate(thirtyDaysFromNow.getDate() + 30);
+    
+    const nearExpiryBatches = stockBatches.filter((batch) => {
+      const expireDate = new Date(batch.expire_date);
+      expireDate.setHours(0, 0, 0, 0);
+      return expireDate >= today && expireDate <= thirtyDaysFromNow && batch.quantity > 0;
+    });
+    
+    const nearExpiryCount = new Set(nearExpiryBatches.map((batch) => batch.barcode)).size;
+    
+    // Calculate total stock value (optional, using a simple average price)
+    const averagePricePerUnit = 10; // Mock average price
+    const totalStockValue = stockData.reduce((sum, product) => sum + (product.remaining_quantity * averagePricePerUnit), 0);
+    
+    mockData = {
+      data: {
+        total_products: totalProducts,
+        low_stock_count: lowStockCount,
+        near_expiry_count: nearExpiryCount,
+        total_stock_value: totalStockValue,
+      },
+    };
+    status = 200;
+  } else if (pathname === '/api/stock/list' && (!options?.method || options.method === 'GET')) {
+    // Get stock list with optional search
+    const search = searchParams.get('search');
+    
+    let filteredProducts = [...stockData];
+    
+    // Apply search filter (product name or barcode)
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filteredProducts = filteredProducts.filter(
+        (product) =>
+          product.product_name.toLowerCase().includes(searchLower) ||
+          product.barcode.includes(search)
+      );
+    }
+    
+    // Sort by product name
+    filteredProducts.sort((a, b) => a.product_name.localeCompare(b.product_name));
+    
+    mockData = {
+      data: filteredProducts,
+    };
+    status = 200;
+  } else if (pathname === '/api/stock/movements' && (!options?.method || options.method === 'GET')) {
+    // Get stock movements with optional date filter
+    const dateFilter = searchParams.get('filter') || 'today'; // 'today' or '7days'
+    
+    let filteredMovements = [...stockMovements];
+    
+    // Apply date filter
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    
+    if (dateFilter === 'today') {
+      // Filter to today only
+      filteredMovements = filteredMovements.filter((movement) => {
+        const movementDate = new Date(movement.created_at);
+        movementDate.setHours(0, 0, 0, 0);
+        return movementDate.getTime() === now.getTime();
+      });
+    } else if (dateFilter === '7days') {
+      // Filter to last 7 days
+      const sevenDaysAgo = new Date(now);
+      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+      
+      filteredMovements = filteredMovements.filter((movement) => {
+        const movementDate = new Date(movement.created_at);
+        return movementDate >= sevenDaysAgo;
+      });
+    }
+    
+    // Sort by created_at descending (newest first)
+    filteredMovements.sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+    
+    mockData = {
+      data: filteredMovements,
+    };
+    status = 200;
+  } else if (pathname === '/api/v1/appointments/today') {
     mockData = { data: appointmentsData };
   } else if (pathname === '/api/v1/patients') {
     // Handle search and pagination for patients
@@ -199,6 +352,8 @@ export async function mockFetch(url: string, options?: RequestInit): Promise<Res
             barcode: barcode,
             product_name: `Product ${barcode}`, // In real system, this would come from product lookup
             remaining_quantity: quantity,
+            min_stock: 10, // Default min_stock for new products
+            unit: 'piece', // Default unit for new products
           };
           stockData.push(newProduct);
           productIndex = stockData.length - 1;
@@ -210,7 +365,26 @@ export async function mockFetch(url: string, options?: RequestInit): Promise<Res
           };
         }
         
+        // Add batch record for expiry tracking
+        stockBatches.push({
+          id: `batch-${Date.now()}`,
+          barcode: barcode,
+          lot: lot,
+          expire_date: expire_date,
+          quantity: quantity,
+        });
+        
         const product = stockData[productIndex];
+        
+        // Add movement record for stock IN
+        stockMovements.unshift({
+          id: `mov-${Date.now()}`,
+          barcode: barcode,
+          product_name: product.product_name,
+          type: 'IN',
+          quantity: quantity,
+          created_at: new Date().toISOString(),
+        });
         mockData = {
           id: `batch-${Date.now()}`,
           barcode: product.barcode,
@@ -250,6 +424,16 @@ export async function mockFetch(url: string, options?: RequestInit): Promise<Res
           ...product,
           remaining_quantity: newQuantity,
         };
+        
+        // Add movement record for stock OUT
+        stockMovements.unshift({
+          id: `mov-${Date.now()}`,
+          barcode: barcode,
+          product_name: product.product_name,
+          type: 'OUT',
+          quantity: quantity,
+          created_at: new Date().toISOString(),
+        });
         
         mockData = {
           product_name: product.product_name,
