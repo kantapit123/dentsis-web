@@ -39,6 +39,8 @@ interface MockStockMovement {
   product_name: string;
   type: 'IN' | 'OUT';
   quantity: number;
+  lot_number?: string;
+  session_id?: string;
   created_at: string;
 }
 
@@ -175,7 +177,7 @@ export async function mockFetch(url: string, options?: RequestInit): Promise<Res
     };
     status = 200;
   } else if (pathname === '/api/stock/movements' && (!options?.method || options.method === 'GET')) {
-    // Get stock movements with optional date filter
+    // Get stock movements with optional date filter, grouped by session_id
     const dateFilter = searchParams.get('filter') || 'today'; // 'today' or '7days'
     
     let filteredMovements = [...stockMovements];
@@ -202,13 +204,85 @@ export async function mockFetch(url: string, options?: RequestInit): Promise<Res
       });
     }
     
-    // Sort by created_at descending (newest first)
-    filteredMovements.sort((a, b) => 
+    // Group movements by session_id + product_name + type + created_at
+    // For movements without session_id, group by id (each is its own group)
+    interface GroupedMovement {
+      session_id?: string;
+      product_name: string;
+      type: 'IN' | 'OUT';
+      created_at: string;
+      details: Array<{ lot: string; quantity: number }>;
+      total_quantity: number;
+    }
+    
+    const groupedMap = new Map<string, GroupedMovement>();
+    
+    for (const movement of filteredMovements) {
+      // Create a key for grouping
+      // For bulk operations (with session_id), group by session + product + type + timestamp
+      // For single operations (without session_id), use id to create individual groups
+      const groupKey = movement.session_id
+        ? `${movement.session_id}|${movement.product_name}|${movement.type}|${movement.created_at}`
+        : movement.id;
+      
+      if (!groupedMap.has(groupKey)) {
+        // Create new group
+        groupedMap.set(groupKey, {
+          session_id: movement.session_id,
+          product_name: movement.product_name,
+          type: movement.type,
+          created_at: movement.created_at,
+          details: [],
+          total_quantity: 0,
+        });
+      }
+      
+      const group = groupedMap.get(groupKey)!;
+      
+      // Add lot detail
+      if (movement.lot_number) {
+        // Check if lot already exists in details
+        const existingLotIndex = group.details.findIndex((d) => d.lot === movement.lot_number);
+        if (existingLotIndex !== -1) {
+          group.details[existingLotIndex].quantity += movement.quantity;
+        } else {
+          group.details.push({
+            lot: movement.lot_number,
+            quantity: movement.quantity,
+          });
+        }
+      } else {
+        // For movements without lot_number, add a generic entry
+        const existingNaIndex = group.details.findIndex((d) => d.lot === 'N/A');
+        if (existingNaIndex !== -1) {
+          group.details[existingNaIndex].quantity += movement.quantity;
+        } else {
+          group.details.push({
+            lot: 'N/A',
+            quantity: movement.quantity,
+          });
+        }
+      }
+      
+      group.total_quantity += movement.quantity;
+    }
+    
+    // Convert map to array and sort by created_at descending (newest first)
+    const groupedArray = Array.from(groupedMap.values()).sort((a, b) => 
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
     
+    // Format response to match API spec (remove total_quantity, it's calculated from details)
+    const formattedResponse = groupedArray.map((group) => ({
+      session_id: group.session_id,
+      product_name: group.product_name,
+      type: group.type,
+      created_at: group.created_at,
+      details: group.details,
+    }));
+    
     mockData = {
-      data: filteredMovements,
+      data: formattedResponse,
     };
     status = 200;
   } else if (pathname === '/api/v1/appointments/today') {
@@ -455,6 +529,9 @@ export async function mockFetch(url: string, options?: RequestInit): Promise<Res
     } else {
       const results: any[] = [];
       const errors: string[] = [];
+      // Generate session ID for this bulk operation
+      const sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const timestamp = new Date().toISOString();
       
       for (const item of items) {
         const { barcode, quantity, lot, expire_date } = item;
@@ -508,14 +585,16 @@ export async function mockFetch(url: string, options?: RequestInit): Promise<Res
           quantity: quantity,
         });
         
-        // Add movement record
+        // Add movement record with lot_number and session_id
         stockMovements.unshift({
           id: `mov-${Date.now()}-${Math.random()}`,
           barcode: barcode,
           product_name: product.product_name,
           type: 'IN',
           quantity: quantity,
-          created_at: new Date().toISOString(),
+          lot_number: lot,
+          session_id: sessionId,
+          created_at: timestamp,
         });
         
         results.push({
@@ -555,6 +634,9 @@ export async function mockFetch(url: string, options?: RequestInit): Promise<Res
     } else {
       const results: any[] = [];
       const errors: string[] = [];
+      // Generate session ID for this bulk operation
+      const sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      const timestamp = new Date().toISOString();
       
       for (const item of items) {
         const { barcode, quantity } = item;
@@ -578,6 +660,29 @@ export async function mockFetch(url: string, options?: RequestInit): Promise<Res
           continue;
         }
         
+        // Simulate FIFO lot selection - find batches for this product and use oldest first
+        const productBatches = stockBatches
+          .filter((batch) => batch.barcode === barcode && batch.quantity > 0)
+          .sort((a, b) => new Date(a.expire_date).getTime() - new Date(b.expire_date).getTime());
+        
+        let remainingQty = quantity;
+        const lotUsages: Array<{ lot: string; quantity: number }> = [];
+        
+        // Use FIFO to deduct from batches and track lot usage
+        for (const batch of productBatches) {
+          if (remainingQty <= 0) break;
+          
+          const deductFromBatch = Math.min(remainingQty, batch.quantity);
+          batch.quantity -= deductFromBatch;
+          remainingQty -= deductFromBatch;
+          
+          // Track lot usage
+          lotUsages.push({
+            lot: batch.lot,
+            quantity: deductFromBatch,
+          });
+        }
+        
         // Update stock quantity
         const newQuantity = product.remaining_quantity - quantity;
         stockData[productIndex] = {
@@ -585,15 +690,32 @@ export async function mockFetch(url: string, options?: RequestInit): Promise<Res
           remaining_quantity: newQuantity,
         };
         
-        // Add movement record
-        stockMovements.unshift({
-          id: `mov-${Date.now()}-${Math.random()}`,
-          barcode: barcode,
-          product_name: product.product_name,
-          type: 'OUT',
-          quantity: quantity,
-          created_at: new Date().toISOString(),
-        });
+        // Create movement records for each lot used (or one record if no lots tracked)
+        if (lotUsages.length > 0) {
+          for (const lotUsage of lotUsages) {
+            stockMovements.unshift({
+              id: `mov-${Date.now()}-${Math.random()}`,
+              barcode: barcode,
+              product_name: product.product_name,
+              type: 'OUT',
+              quantity: lotUsage.quantity,
+              lot_number: lotUsage.lot,
+              session_id: sessionId,
+              created_at: timestamp,
+            });
+          }
+        } else {
+          // Fallback: create one movement record without lot_number
+          stockMovements.unshift({
+            id: `mov-${Date.now()}-${Math.random()}`,
+            barcode: barcode,
+            product_name: product.product_name,
+            type: 'OUT',
+            quantity: quantity,
+            session_id: sessionId,
+            created_at: timestamp,
+          });
+        }
         
         results.push({
           barcode,

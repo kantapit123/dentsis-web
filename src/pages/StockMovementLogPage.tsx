@@ -1,26 +1,31 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiFetch } from '../utils/mockApi';
 
-interface StockMovement {
-  id: string;
-  barcode: string;
+interface LotDetail {
+  lot: string;
+  quantity: number;
+}
+
+interface StockMovementSession {
+  session_id?: string;
   product_name: string;
   type: 'IN' | 'OUT';
-  quantity: number;
   created_at: string;
+  details: LotDetail[];
 }
 
 interface StockMovementResponse {
-  data: StockMovement[];
+  data: StockMovementSession[];
 }
 
 type DateFilter = 'today' | '7days';
 
 export default function StockMovementLogPage() {
-  const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [movements, setMovements] = useState<StockMovementSession[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [dateFilter, setDateFilter] = useState<DateFilter>('today');
+  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set());
 
   // Fetch stock movements
   const fetchMovements = useCallback(async (filter: DateFilter) => {
@@ -63,6 +68,24 @@ export default function StockMovementLogPage() {
   useEffect(() => {
     fetchMovements(dateFilter);
   }, [dateFilter, fetchMovements]);
+
+  // Toggle session expansion
+  const toggleSession = useCallback((sessionKey: string) => {
+    setExpandedSessions((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(sessionKey)) {
+        newSet.delete(sessionKey);
+      } else {
+        newSet.add(sessionKey);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Calculate total quantity from details
+  const getTotalQuantity = (details: LotDetail[]): number => {
+    return details.reduce((sum, detail) => sum + detail.quantity, 0);
+  };
 
   // Format date and time for display
   const formatDateTime = (dateString: string): string => {
@@ -202,74 +225,139 @@ export default function StockMovementLogPage() {
               </div>
             ) : (
               <div className="divide-y divide-gray-200">
-                {movements.map((movement) => (
-                  <div
-                    key={movement.id}
-                    className="p-4 md:p-6 hover:bg-gray-50 transition"
-                  >
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                      {/* Left: Product Info and Type */}
-                      <div className="flex-1">
-                        <div className="flex items-start gap-3">
-                          {/* Type Badge */}
-                          <span
-                            className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
-                              movement.type === 'IN'
-                                ? 'bg-green-100 text-green-800 border border-green-300'
-                                : 'bg-red-100 text-red-800 border border-red-300'
-                            }`}
-                          >
-                            {movement.type === 'IN' ? (
-                              <svg
-                                className="w-4 h-4 mr-1"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M12 4v16m8-8H4"
-                                />
-                              </svg>
-                            ) : (
-                              <svg
-                                className="w-4 h-4 mr-1"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M20 12H4"
-                                />
-                              </svg>
-                            )}
-                            {movement.type}
-                          </span>
-
-                          {/* Product Info */}
+                {movements.map((session, index) => {
+                  const sessionKey = session.session_id || `session-${index}`;
+                  const isExpanded = expandedSessions.has(sessionKey);
+                  const totalQuantity = getTotalQuantity(session.details);
+                  
+                  return (
+                    <div
+                      key={sessionKey}
+                      className="p-4 md:p-6 hover:bg-gray-50 transition"
+                    >
+                      <div className="flex flex-col gap-3">
+                        {/* Header Row */}
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          {/* Left: Product Info and Type */}
                           <div className="flex-1">
-                            <div className="font-semibold text-gray-900">{movement.product_name}</div>
-                            <div className="text-sm text-gray-600 mt-1">
-                              <span className="font-medium">{movement.quantity.toLocaleString()}</span>
-                              {' '}units
+                            <div className="flex items-start gap-3">
+                              {/* Type Badge */}
+                              <span
+                                className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                                  session.type === 'IN'
+                                    ? 'bg-green-100 text-green-800 border border-green-300'
+                                    : 'bg-red-100 text-red-800 border border-red-300'
+                                }`}
+                              >
+                                {session.type === 'IN' ? (
+                                  <svg
+                                    className="w-4 h-4 mr-1"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M12 4v16m8-8H4"
+                                    />
+                                  </svg>
+                                ) : (
+                                  <svg
+                                    className="w-4 h-4 mr-1"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                  >
+                                    <path
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                      strokeWidth={2}
+                                      d="M20 12H4"
+                                    />
+                                  </svg>
+                                )}
+                                {session.type}
+                              </span>
+
+                              {/* Product Info */}
+                              <div className="flex-1">
+                                <div className="font-semibold text-gray-900">{session.product_name}</div>
+                                <div className="text-sm text-gray-600 mt-1">
+                                  <span className="font-medium">{totalQuantity.toLocaleString()}</span>
+                                  {' '}units
+                                  {session.details.length > 1 && (
+                                    <span className="text-gray-500 ml-2">
+                                      ({session.details.length} lot{session.details.length !== 1 ? 's' : ''})
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-xs text-gray-500 mt-1 font-mono">{movement.barcode}</div>
+                          </div>
+
+                          {/* Right: Time and Expand Button */}
+                          <div className="flex items-center gap-3">
+                            <div className="text-sm text-gray-600 whitespace-nowrap">
+                              {formatDateTime(session.created_at)}
+                            </div>
+                            {session.details.length > 0 && (
+                              <button
+                                onClick={() => toggleSession(sessionKey)}
+                                className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded p-1 transition"
+                                aria-label={isExpanded ? 'Collapse lot details' : 'Expand lot details'}
+                              >
+                                <span className="font-medium">
+                                  {isExpanded ? 'Hide' : 'Show'} Details
+                                </span>
+                                <svg
+                                  className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M19 9l-7 7-7-7"
+                                  />
+                                </svg>
+                              </button>
+                            )}
                           </div>
                         </div>
-                      </div>
 
-                      {/* Right: Time */}
-                      <div className="text-sm text-gray-600 whitespace-nowrap">
-                        {formatDateTime(movement.created_at)}
+                        {/* Expandable Lot Details */}
+                        {isExpanded && session.details.length > 0 && (
+                          <div className="mt-3 pt-3 border-t border-gray-200">
+                            <div className="text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
+                              Lot Breakdown
+                            </div>
+                            <div className="space-y-2">
+                              {session.details.map((detail, detailIndex) => (
+                                <div
+                                  key={detailIndex}
+                                  className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-gray-900">Lot:</span>
+                                    <span className="text-sm font-mono text-gray-700">{detail.lot}</span>
+                                  </div>
+                                  <div className="text-sm text-gray-600">
+                                    <span className="font-medium">{detail.quantity.toLocaleString()}</span>
+                                    {' '}units
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
