@@ -8,7 +8,7 @@ interface StockFormItem {
   product_name: string;
   quantity: number;
   lot?: string;
-  expire_date?: string;
+  expire_date?: string | null;
   remaining_quantity?: number;
 }
 
