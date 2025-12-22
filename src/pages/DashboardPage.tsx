@@ -89,7 +89,7 @@ export default function DashboardPage() {
 
   // Stock Row Component (reusable)
   const StockRow = ({ product }: { product: StockProduct }) => {
-    const remainingQty = product.remainingQuantity ?? 0;
+    const remainingQty = product.totalQuantity ?? 0;
     const minStock = product.minStock ?? 0;
     const isOutOfStock = remainingQty === 0;
     const isLowStock = remainingQty > 0 && remainingQty <= minStock;
