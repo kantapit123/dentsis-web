@@ -115,7 +115,7 @@ export default function DashboardPage() {
     return (
       <tr className={`transition ${getRowClasses()}`}>
         <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-          <div className="text-sm font-medium text-gray-900">{product.productName || '-'}</div>
+          <div className="text-sm font-medium text-gray-900">{product.name || '-'}</div>
           <div className="text-xs text-gray-500 mt-1 font-mono">{product.barcode || '-'}</div>
         </td>
         <td className="px-4 md:px-6 py-4 whitespace-nowrap">

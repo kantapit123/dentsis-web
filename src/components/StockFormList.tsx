@@ -6,7 +6,7 @@ import AddProductModal from "./AddProductModal";
 
 interface StockFormItem {
   barcode: string;
-  product_name: string;
+  name: string;
   quantity: number;
   lot?: string;
   expire_date?: string | null;
@@ -254,7 +254,7 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
         // Add new item
         const newItem: StockFormItem = {
           barcode: barcodeToUse,
-          product_name: productInfo.product_name,
+          name: productInfo.name || '',
           quantity: currentQuantity,
           remaining_quantity: productInfo.remaining_quantity,
         };
@@ -696,7 +696,7 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-gray-900">
-                        {item.product_name}
+                        {item.name || '-'}
                       </div>
                       <div className="text-sm text-gray-500 mt-1 font-mono">
                         {item.barcode}

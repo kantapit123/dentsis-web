@@ -8,6 +8,7 @@ import apiClient from './api';
 // Types
 export interface ProductInfo {
   product_name: string;
+  name?: string;
   remaining_quantity: number;
   unit?: string;
   min_stock?: number;
@@ -41,7 +42,7 @@ export interface DashboardStats {
 
 export interface StockProduct {
   barcode: string;
-  productName: string;
+  name: string;
   remainingQuantity: number;
   minStock: number;
   unit: string;
