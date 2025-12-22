@@ -36,13 +36,13 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
   const [lotValidationErrors, setLotValidationErrors] = useState<Set<number>>(
     new Set()
   );
-  const [expireDateValidationErrors, setExpireDateValidationErrors] = useState<Set<number>>(
-    new Set()
-  );
+  const [expireDateValidationErrors, setExpireDateValidationErrors] = useState<
+    Set<number>
+  >(new Set());
   // Track which items have expire date enabled
-  const [itemHasExpireDate, setItemHasExpireDate] = useState<Map<number, boolean>>(
-    new Map()
-  );
+  const [itemHasExpireDate, setItemHasExpireDate] = useState<
+    Map<number, boolean>
+  >(new Map());
 
   // Add product modal state
   const [showAddProductModal, setShowAddProductModal] =
@@ -71,11 +71,12 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
     if (barcodeInputRef.current && !scanning && !submitting) {
       // Check if user is currently focused on any input/textarea element
       const activeElement = document.activeElement;
-      const isTypingInInput = 
+      const isTypingInInput =
         activeElement &&
-        (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA') &&
+        (activeElement.tagName === "INPUT" ||
+          activeElement.tagName === "TEXTAREA") &&
         activeElement !== barcodeInputRef.current;
-      
+
       // Only auto-focus if user is not typing in another input
       if (!isTypingInInput) {
         barcodeInputRef.current.focus();
@@ -198,7 +199,7 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
       if (mode === "OUT") {
         if (productInfo.remaining_quantity <= 0) {
           setSubmitError(
-            `Stock is insufficient for ${productInfo.product_name}. Remaining quantity is ${productInfo.remaining_quantity}.`
+            `Stock is insufficient for [${barcode}] ${productInfo.name}. Remaining quantity is ${productInfo.remaining_quantity}.`
           );
           return;
         }
@@ -219,8 +220,11 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
           // Match by lot and expire_date (both must match if either is provided)
           const currentLotTrimmed = currentLot.trim();
           const itemLot = item.lot?.trim() || "";
-          const lotMatches = (!currentLotTrimmed && !itemLot) || (itemLot === currentLotTrimmed);
-          const expireMatches = (!currentExpireDate && !item.expire_date) || (item.expire_date === currentExpireDate);
+          const lotMatches =
+            (!currentLotTrimmed && !itemLot) || itemLot === currentLotTrimmed;
+          const expireMatches =
+            (!currentExpireDate && !item.expire_date) ||
+            item.expire_date === currentExpireDate;
           return lotMatches && expireMatches;
         }
         return true; // OUT mode: match by barcode only
@@ -249,12 +253,12 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
               : item
           )
         );
-        showToast(`${productInfo.product_name} quantity updated`);
+        showToast(`[${barcodeToUse}] ${productInfo.name} quantity updated`);
       } else {
         // Add new item
         const newItem: StockFormItem = {
           barcode: barcodeToUse,
-          name: productInfo.name || '',
+          name: productInfo.name || "",
           quantity: currentQuantity,
           remaining_quantity: productInfo.remaining_quantity,
         };
@@ -283,7 +287,7 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
           }
           return newItems;
         });
-        showToast(`${productInfo.product_name} added to list`);
+        showToast(`[${barcodeToUse}] ${productInfo.name} added to list`);
       }
 
       // Reset input fields
@@ -319,7 +323,7 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
   // Handle remove item
   const handleRemoveItem = useCallback((index: number) => {
     setItems((prev) => prev.filter((_, i) => i !== index));
-    
+
     // Clean up state for removed item and reindex remaining items
     setItemHasExpireDate((prevMap) => {
       const newMap = new Map<number, boolean>();
@@ -333,7 +337,7 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
       });
       return newMap;
     });
-    
+
     setLotValidationErrors((prev) => {
       const newSet = new Set<number>();
       prev.forEach((idx) => {
@@ -346,7 +350,7 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
       });
       return newSet;
     });
-    
+
     setExpireDateValidationErrors((prev) => {
       const newSet = new Set<number>();
       prev.forEach((idx) => {
@@ -423,14 +427,14 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
         newMap.set(index, hasExpireDate);
         return newMap;
       });
-      
+
       // Clear validation error when radio button changes
       setExpireDateValidationErrors((prev) => {
         const newSet = new Set(prev);
         newSet.delete(index);
         return newSet;
       });
-      
+
       // If "does not have an expiration date" is selected, set expire_date to undefined (will be converted to null on submit)
       if (!hasExpireDate) {
         setItems((prev) =>
@@ -451,26 +455,28 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
     if (mode === "IN") {
       const lotErrorIndices = new Set<number>();
       const expireDateErrorIndices = new Set<number>();
-      
+
       items.forEach((item, index) => {
         // Validate lot number
         if (!item.lot || item.lot.trim() === "") {
           lotErrorIndices.add(index);
         }
-        
+
         // Validate expire date if "has an expiration date" is selected
         const hasExpireDate = itemHasExpireDate.get(index);
         // Check if hasExpireDate is explicitly true (not undefined or false)
         if (hasExpireDate === true) {
           // Get expire_date value - input type="date" returns empty string if not selected
           const expireDate = item.expire_date;
-          
+
           // Check if expire_date is missing, empty, or invalid
-          if (!expireDate || 
-              typeof expireDate !== 'string' || 
-              expireDate.trim() === "" || 
-              expireDate === "dd/mm/yyyy" || 
-              expireDate === "mm/dd/yyyy") {
+          if (
+            !expireDate ||
+            typeof expireDate !== "string" ||
+            expireDate.trim() === "" ||
+            expireDate === "dd/mm/yyyy" ||
+            expireDate === "mm/dd/yyyy"
+          ) {
             expireDateErrorIndices.add(index);
           } else {
             // Validate date format (YYYY-MM-DD) - required format for input type="date"
@@ -480,16 +486,18 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
               expireDateErrorIndices.add(index);
             } else {
               // Validate date is valid (not invalid date like 2025-13-45)
-              const date = new Date(trimmedDate + 'T00:00:00'); // Add time to avoid timezone issues
+              const date = new Date(trimmedDate + "T00:00:00"); // Add time to avoid timezone issues
               if (isNaN(date.getTime())) {
                 expireDateErrorIndices.add(index);
               } else {
                 // Additional check: ensure the parsed date matches the input string
                 // This catches cases where date might be parsed incorrectly
-                const [year, month, day] = trimmedDate.split('-').map(Number);
-                if (date.getFullYear() !== year || 
-                    date.getMonth() + 1 !== month || 
-                    date.getDate() !== day) {
+                const [year, month, day] = trimmedDate.split("-").map(Number);
+                if (
+                  date.getFullYear() !== year ||
+                  date.getMonth() + 1 !== month ||
+                  date.getDate() !== day
+                ) {
                   expireDateErrorIndices.add(index);
                 }
               }
@@ -502,16 +510,19 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
       if (lotErrorIndices.size > 0 || expireDateErrorIndices.size > 0) {
         setLotValidationErrors(lotErrorIndices);
         setExpireDateValidationErrors(expireDateErrorIndices);
-        
+
         let errorMessage = "";
         if (lotErrorIndices.size > 0 && expireDateErrorIndices.size > 0) {
-          errorMessage = "Please fill in the lot number and expiration date for all items before submitting.";
+          errorMessage =
+            "Please fill in the lot number and expiration date for all items before submitting.";
         } else if (lotErrorIndices.size > 0) {
-          errorMessage = "Please fill in the lot number for all items before submitting.";
+          errorMessage =
+            "Please fill in the lot number for all items before submitting.";
         } else if (expireDateErrorIndices.size > 0) {
-          errorMessage = "Please fill in a valid expiration date for all items with expiration date enabled.";
+          errorMessage =
+            "Please fill in a valid expiration date for all items with expiration date enabled.";
         }
-        
+
         setSubmitError(errorMessage);
         return; // Don't call API if validation fails
       }
@@ -532,7 +543,7 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
           expire_date: hasExpireDate === false ? null : item.expire_date,
         };
       });
-      
+
       await onSubmit(itemsToSubmit);
 
       // Success: clear list
@@ -696,7 +707,7 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="font-medium text-gray-900">
-                        {item.name || '-'}
+                        {item.name || "-"}
                       </div>
                       <div className="text-sm text-gray-500 mt-1 font-mono">
                         {item.barcode}
@@ -795,23 +806,35 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
                                 <input
                                   type="radio"
                                   name={`expire-date-${index}`}
-                                  checked={itemHasExpireDate.get(index) !== false}
-                                  onChange={() => handleExpireDateToggle(index, true)}
+                                  checked={
+                                    itemHasExpireDate.get(index) !== false
+                                  }
+                                  onChange={() =>
+                                    handleExpireDateToggle(index, true)
+                                  }
                                   disabled={submitting}
                                   className="w-4 h-4 text-blue-600 focus:ring-blue-500"
                                 />
-                                <span className="text-xs text-gray-700">has an expiration date</span>
+                                <span className="text-xs text-gray-700">
+                                  has an expiration date
+                                </span>
                               </label>
                               <label className="flex items-center gap-2 cursor-pointer">
                                 <input
                                   type="radio"
                                   name={`expire-date-${index}`}
-                                  checked={itemHasExpireDate.get(index) === false}
-                                  onChange={() => handleExpireDateToggle(index, false)}
+                                  checked={
+                                    itemHasExpireDate.get(index) === false
+                                  }
+                                  onChange={() =>
+                                    handleExpireDateToggle(index, false)
+                                  }
                                   disabled={submitting}
                                   className="w-4 h-4 text-blue-600 focus:ring-blue-500"
                                 />
-                                <span className="text-xs text-gray-700">does not have an expiration date</span>
+                                <span className="text-xs text-gray-700">
+                                  does not have an expiration date
+                                </span>
                               </label>
                             </div>
                             <input
@@ -830,11 +853,15 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
                                   ? "border-red-300 bg-red-50"
                                   : "border-gray-300"
                               }`}
-                              disabled={submitting || itemHasExpireDate.get(index) === false}
+                              disabled={
+                                submitting ||
+                                itemHasExpireDate.get(index) === false
+                              }
                             />
                             {expireDateValidationErrors.has(index) && (
                               <p className="mt-1 text-xs text-red-600">
-                                Expiration date is required and must be a valid date
+                                Expiration date is required and must be a valid
+                                date
                               </p>
                             )}
                           </div>
