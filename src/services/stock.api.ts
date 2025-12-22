@@ -43,7 +43,7 @@ export interface DashboardStats {
 export interface StockProduct {
   barcode: string;
   name: string;
-  remainingQuantity: number;
+  totalQuantity: number;
   minStock: number;
   unit: string;
 }
