@@ -5,7 +5,7 @@ import StockFormList from '../components/StockFormList';
 
 interface StockFormItem {
   barcode: string;
-  product_name: string;
+  name: string;
   quantity: number;
   lot?: string;
   expire_date?: string | null;
