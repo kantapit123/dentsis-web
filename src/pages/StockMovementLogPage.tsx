@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getStockLogs } from '../services/stock.api';
-import type { StockMovementSession } from '../services/stock.api';
+import type { StockMovementSession, LotDetail } from '../services/stock.api';
 
 type DateFilter = 'today' | '7days';
 
@@ -46,10 +46,11 @@ export default function StockMovementLogPage() {
     });
   }, []);
 
-  // Calculate total quantity from details
-  const getTotalQuantity = (details: LotDetail[]): number => {
-    if (!details || !Array.isArray(details)) return 0;
-    return details.reduce((sum, detail) => sum + (detail.quantity ?? 0), 0);
+  // Calculate total quantity from lots (fallback if totalQuantity not available)
+  const getTotalQuantity = (lots: LotDetail[], totalQuantity?: number): number => {
+    if (totalQuantity !== undefined) return totalQuantity;
+    if (!lots || !Array.isArray(lots)) return 0;
+    return lots.reduce((sum, lot) => sum + (lot.quantity ?? 0), 0);
   };
 
   // Format date and time for display
@@ -190,10 +191,10 @@ export default function StockMovementLogPage() {
               </div>
             ) : (
               <div className="divide-y divide-gray-200">
-                {movements.map((session, index) => {
-                  const sessionKey = session.session_id || `session-${index}`;
+                {movements.map((session) => {
+                  const sessionKey = session.sessionId;
                   const isExpanded = expandedSessions.has(sessionKey);
-                  const totalQuantity = getTotalQuantity(session.details);
+                  const totalQuantity = getTotalQuantity(session.lots, session.totalQuantity);
                   
                   return (
                     <div
@@ -248,13 +249,13 @@ export default function StockMovementLogPage() {
 
                               {/* Product Info */}
                               <div className="flex-1">
-                                <div className="font-semibold text-gray-900">{session.product_name || '-'}</div>
+                                <div className="font-semibold text-gray-900">{session.productName || '-'}</div>
                                 <div className="text-sm text-gray-600 mt-1">
                                   <span className="font-medium">{totalQuantity.toLocaleString()}</span>
                                   {' '}units
-                                  {session.details && session.details.length > 1 && (
+                                  {session.lots && session.lots.length > 1 && (
                                     <span className="text-gray-500 ml-2">
-                                      ({session.details.length} lot{session.details.length !== 1 ? 's' : ''})
+                                      ({session.lots.length} lot{session.lots.length !== 1 ? 's' : ''})
                                     </span>
                                   )}
                                 </div>
@@ -265,9 +266,9 @@ export default function StockMovementLogPage() {
                           {/* Right: Time and Expand Button */}
                           <div className="flex items-center gap-3">
                             <div className="text-sm text-gray-600 whitespace-nowrap">
-                              {formatDateTime(session.created_at)}
+                              {formatDateTime(session.createdAt)}
                             </div>
-                            {session.details && session.details.length > 0 && (
+                            {session.lots && session.lots.length > 0 && (
                               <button
                                 onClick={() => toggleSession(sessionKey)}
                                 className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded p-1 transition"
@@ -295,23 +296,23 @@ export default function StockMovementLogPage() {
                         </div>
 
                         {/* Expandable Lot Details */}
-                        {isExpanded && session.details && session.details.length > 0 && (
+                        {isExpanded && session.lots && session.lots.length > 0 && (
                           <div className="mt-3 pt-3 border-t border-gray-200">
                             <div className="text-xs font-medium text-gray-700 uppercase tracking-wide mb-2">
                               Lot Breakdown
                             </div>
                             <div className="space-y-2">
-                              {session.details.map((detail, detailIndex) => (
+                              {session.lots.map((lot, lotIndex) => (
                                 <div
-                                  key={detailIndex}
+                                  key={lotIndex}
                                   className="flex items-center justify-between p-2 bg-gray-50 rounded-lg"
                                 >
                                   <div className="flex items-center gap-2">
                                     <span className="text-sm font-medium text-gray-900">Lot:</span>
-                                    <span className="text-sm font-mono text-gray-700">{detail.lot || '-'}</span>
+                                    <span className="text-sm font-mono text-gray-700">{lot.lot || '-'}</span>
                                   </div>
                                   <div className="text-sm text-gray-600">
-                                    <span className="font-medium">{(detail.quantity ?? 0).toLocaleString()}</span>
+                                    <span className="font-medium">{(lot.quantity ?? 0).toLocaleString()}</span>
                                     {' '}units
                                   </div>
                                 </div>

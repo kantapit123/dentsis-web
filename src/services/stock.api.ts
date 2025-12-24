@@ -49,16 +49,17 @@ export interface StockProduct {
 }
 
 export interface LotDetail {
-  lotNumber: string;
+  lot: string;
   quantity: number;
 }
 
 export interface StockMovementSession {
-  session_id?: string;
+  sessionId: string;
   productName: string;
   type: 'IN' | 'OUT';
   createdAt: string;
-  details: LotDetail[];
+  totalQuantity: number;
+  lots: LotDetail[];
 }
 
 /**
@@ -138,7 +139,7 @@ export async function getStockList(search?: string): Promise<StockProduct[]> {
  * Get stock movement logs
  */
 export async function getStockLogs(filter: 'today' | '7days' = 'today'): Promise<StockMovementSession[]> {
-  const response = await apiClient.get<{ data: StockMovementSession[] }>('/api/stock/logs', {
+  const response = await apiClient.get<StockMovementSession[] | { data: StockMovementSession[] }>('/api/stock/logs', {
     params: { filter },
   });
   // Handle different response structures
