@@ -30,7 +30,7 @@ export default function DashboardPage() {
   const [loadingStockList, setLoadingStockList] = useState<boolean>(false);
   const [stockListError, setStockListError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<'lowStock' | 'nearExpiry' | 'inStock' | 'outOfStock' | ''>('');
+  const [statusFilter, setStatusFilter] = useState<'lowStock' | 'nearExpiry' | 'inStock' | 'outOfStock' | 'expired' | ''>('');
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -61,7 +61,7 @@ export default function DashboardPage() {
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   // Fetch stock list
-  const fetchStockList = useCallback(async (search: string, page: number = 1, status?: 'lowStock' | 'nearExpiry' | 'inStock' | 'outOfStock') => {
+  const fetchStockList = useCallback(async (search: string, page: number = 1, status?: 'lowStock' | 'nearExpiry' | 'inStock' | 'outOfStock' | 'expired') => {
     setLoadingStockList(true);
     setStockListError(null);
 
@@ -109,15 +109,47 @@ export default function DashboardPage() {
     }).format(value);
   };
 
+  // Format date for display
+  const formatDate = (dateString?: string): string => {
+    if (!dateString) return '-';
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'short',
+        day: 'numeric',
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
+  // Check if product is expired
+  const isExpired = (expireDate?: string): boolean => {
+    if (!expireDate) return false;
+    try {
+      const expire = new Date(expireDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      expire.setHours(0, 0, 0, 0);
+      return expire < today;
+    } catch {
+      return false;
+    }
+  };
+
   // Stock Row Component (reusable)
   const StockRow = ({ product }: { product: StockProduct }) => {
     const remainingQty = product.totalQuantity ?? 0;
     const minStock = product.minStock ?? 0;
     const isOutOfStock = remainingQty === 0;
     const isLowStock = remainingQty > 0 && remainingQty <= minStock;
+    const expired = isExpired(product.expireDate);
 
     const getRowClasses = () => {
-      if (isOutOfStock) {
+      if (expired) {
+        return 'bg-red-100 hover:bg-red-200';
+      } else if (isOutOfStock) {
         return 'bg-red-50 hover:bg-red-100';
       } else if (isLowStock) {
         return 'bg-yellow-50 hover:bg-yellow-100';
@@ -149,7 +181,11 @@ export default function DashboardPage() {
           <div className="text-sm text-gray-600">{product.unit || '-'}</div>
         </td>
         <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-          {isOutOfStock ? (
+          {expired ? (
+            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-200 text-red-900 border border-red-400">
+              Expired
+            </span>
+          ) : isOutOfStock ? (
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800 border border-red-300">
               Out of Stock
             </span>
@@ -162,6 +198,11 @@ export default function DashboardPage() {
               In Stock
             </span>
           )}
+        </td>
+        <td className="px-4 md:px-6 py-4 whitespace-nowrap">
+          <div className={`text-sm ${expired ? 'text-red-600 font-semibold' : 'text-gray-600'}`}>
+            {formatDate(product.expireDate)}
+          </div>
         </td>
       </tr>
     );
@@ -331,11 +372,12 @@ export default function DashboardPage() {
               }
             />
 
-            {/* Total Stock Quantity */}
-            {stats.totalStockQuantity !== undefined && (
+            {/* Expired Products Count */}
+            {stats.expiredCount !== undefined && (
               <StatCard
-                title="Total Stock Quantity"
-                value={stats.totalStockQuantity}
+                title="Product ที่หมดอายุแล้ว"
+                value={stats.expiredCount}
+                alertType={stats.expiredCount > 0 ? 'low' : 'normal'}
                 icon={
                   <svg
                     className="h-8 w-8"
@@ -347,7 +389,7 @@ export default function DashboardPage() {
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                     />
                   </svg>
                 }
@@ -451,6 +493,16 @@ export default function DashboardPage() {
                   >
                     Near Expiry
                   </button>
+                  <button
+                    onClick={() => setStatusFilter('expired')}
+                    className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
+                      statusFilter === 'expired'
+                        ? 'bg-red-700 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Expired
+                  </button>
                 </div>
               </div>
 
@@ -531,6 +583,9 @@ export default function DashboardPage() {
                             </th>
                             <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                               Status
+                            </th>
+                            <th className="px-4 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                              Expire Date
                             </th>
                           </tr>
                         </thead>

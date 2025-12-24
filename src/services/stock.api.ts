@@ -39,6 +39,7 @@ export interface DashboardStats {
   nearExpiryCount: number;
   totalStockValue?: number;
   totalStockQuantity?: number;
+  expiredCount?: number; // Count of expired products
 }
 
 export interface StockProduct {
@@ -49,6 +50,7 @@ export interface StockProduct {
   minStock: number;
   totalQuantity: number;
   nearExpiry: boolean;
+  expireDate?: string; // Earliest expire date (YYYY-MM-DD format)
 }
 
 export interface PaginationInfo {
@@ -147,7 +149,7 @@ export async function getStockList(
   search?: string,
   page: number = 1,
   limit: number = 20,
-  status?: 'lowStock' | 'nearExpiry' | 'inStock' | 'outOfStock'
+  status?: 'lowStock' | 'nearExpiry' | 'inStock' | 'outOfStock' | 'expired'
 ): Promise<PaginatedResponse<StockProduct>> {
   const params: Record<string, string | number> = {
     page,
