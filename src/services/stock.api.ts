@@ -85,8 +85,21 @@ export interface StockMovementSession {
  * Get product information by barcode
  */
 export async function getProductByBarcode(barcode: string): Promise<ProductInfo> {
-  const response = await apiClient.get<ProductInfo>(`/api/stock/${barcode}`);
-  return response.data;
+  const response = await apiClient.get<any>(`/api/stock/${barcode}`);
+  
+  // Map API response (camelCase) to ProductInfo interface (snake_case)
+  const data = response.data;
+  const productInfo: ProductInfo = {
+    product_name: data.product_name || data.name || '',
+    name: data.name,
+    remaining_quantity: data.remaining_quantity ?? data.totalQuantity ?? 0,
+    unit: data.unit,
+    min_stock: data.min_stock ?? data.minStock,
+    near_expiry: data.near_expiry ?? data.nearExpiry,
+    expire_date: data.expire_date ?? data.expireDate,
+  };
+  
+  return productInfo;
 }
 
 /**

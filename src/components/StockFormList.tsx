@@ -56,7 +56,9 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
   const [confirmModalType, setConfirmModalType] = useState<
     "expired" | "nearExpiry" | "lowStock" | null
   >(null);
-  const [confirmModalItems, setConfirmModalItems] = useState<StockFormItem[]>([]);
+  const [confirmModalItems, setConfirmModalItems] = useState<StockFormItem[]>(
+    []
+  );
   const [pendingSubmit, setPendingSubmit] = useState<boolean>(false);
 
   // Barcode scanning state
@@ -259,6 +261,15 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
               ? {
                   ...item,
                   quantity: newQuantity,
+                  // Update expire_date, near_expiry, min_stock from productInfo when merging
+                  expire_date: productInfo.expire_date ?? item.expire_date,
+                  near_expiry:
+                    productInfo.near_expiry !== undefined
+                      ? productInfo.near_expiry
+                      : item.near_expiry,
+                  min_stock: productInfo.min_stock ?? item.min_stock,
+                  remaining_quantity:
+                    productInfo.remaining_quantity ?? item.remaining_quantity,
                 }
               : item
           )
@@ -594,17 +605,28 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
       const lowStockItems: StockFormItem[] = [];
 
       items.forEach((item) => {
+        let itemChecked = false;
+
         // Check expired (highest priority)
         if (item.expire_date && checkExpired(item.expire_date)) {
           expiredItems.push(item);
+          itemChecked = true;
         }
-        // Check near expiry
-        else if (item.near_expiry) {
+
+        // Check near expiry (only if not expired)
+        // Note: near_expiry can be true, false, or undefined
+        // We only want to show modal if it's explicitly true
+        if (!itemChecked && item.near_expiry === true) {
           nearExpiryItems.push(item);
+          itemChecked = true;
         }
-        // Check low stock
-        else if (checkLowStock(item)) {
-          lowStockItems.push(item);
+
+        // Check low stock (only if not expired and not near expiry)
+        if (!itemChecked) {
+          const isLowStockResult = checkLowStock(item);
+          if (isLowStockResult) {
+            lowStockItems.push(item);
+          }
         }
       });
 
@@ -1114,10 +1136,10 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
                     }`}
                   >
                     {confirmModalType === "expired"
-                      ? "Product หมดอายุแล้ว (Critical)"
+                      ? "Product is expired"
                       : confirmModalType === "nearExpiry"
-                      ? "Product ใกล้หมดอายุ (Warning)"
-                      : "Product ใกล้หมด Stock"}
+                      ? "Product is near expiry"
+                      : "Product is low stock"}
                   </h3>
                   <p
                     className={`text-sm ${
@@ -1129,10 +1151,10 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
                     }`}
                   >
                     {confirmModalType === "expired"
-                      ? "ยืนยันว่าคุณต้องการเอาสินค้าที่หมดอายุแล้วออกจากสต็อก (ไม่ได้เอาไปใช้)"
+                      ? "Please confirm that you want to remove the expired product from stock (it will not be used)."
                       : confirmModalType === "nearExpiry"
-                      ? "กรุณาตรวจสอบวันหมดอายุอีกครั้งก่อนดำเนินการ"
-                      : "สินค้าใกล้หมด Stock แล้ว โปรดแจ้งเจ้าหน้าที่"}
+                      ? "Please check the expiration date again before proceeding."
+                      : "This product is running low on stock. Please notify the staff."}
                   </p>
                 </div>
               </div>
@@ -1141,7 +1163,7 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
             <div className="p-6">
               <div className="mb-4">
                 <p className="text-sm font-medium text-gray-700 mb-2">
-                  สินค้าที่ได้รับผลกระทบ:
+                  Affected Products:
                 </p>
                 <div className="space-y-2 max-h-48 overflow-y-auto">
                   {confirmModalItems.map((item, index) => (
@@ -1186,7 +1208,7 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
                   disabled={submitting}
                   className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  ยกเลิก
+                  Cancel
                 </button>
                 <button
                   onClick={handleActualSubmit}
@@ -1199,7 +1221,7 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
                       : "bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500"
                   }`}
                 >
-                  {submitting ? "กำลังดำเนินการ..." : "ยืนยัน"}
+                  {submitting ? "Submitting..." : "Confirm"}
                 </button>
               </div>
             </div>
