@@ -141,12 +141,13 @@ export async function getDashboardStats(): Promise<DashboardStats> {
 }
 
 /**
- * Get stock list with optional search and pagination
+ * Get stock list with optional search, status filter, and pagination
  */
 export async function getStockList(
   search?: string,
   page: number = 1,
-  limit: number = 20
+  limit: number = 20,
+  status?: 'lowStock' | 'nearExpiry' | 'inStock' | 'outOfStock'
 ): Promise<PaginatedResponse<StockProduct>> {
   const params: Record<string, string | number> = {
     page,
@@ -154,6 +155,9 @@ export async function getStockList(
   };
   if (search) {
     params.search = search;
+  }
+  if (status) {
+    params.status = status;
   }
 
   const response = await apiClient.get<PaginatedResponse<StockProduct>>('/api/products', {

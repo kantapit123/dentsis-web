@@ -30,6 +30,7 @@ export default function DashboardPage() {
   const [loadingStockList, setLoadingStockList] = useState<boolean>(false);
   const [stockListError, setStockListError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<'lowStock' | 'nearExpiry' | 'inStock' | 'outOfStock' | ''>('');
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -60,7 +61,7 @@ export default function DashboardPage() {
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   // Fetch stock list
-  const fetchStockList = useCallback(async (search: string, page: number = 1) => {
+  const fetchStockList = useCallback(async (search: string, page: number = 1, status?: 'lowStock' | 'nearExpiry' | 'inStock' | 'outOfStock') => {
     setLoadingStockList(true);
     setStockListError(null);
 
@@ -68,7 +69,8 @@ export default function DashboardPage() {
       const response: PaginatedResponse<StockProduct> = await getStockList(
         search.trim() || undefined,
         page,
-        10
+        10,
+        status
       );
       setStockList(response.data || []);
       setPagination(response.pagination);
@@ -87,15 +89,15 @@ export default function DashboardPage() {
     fetchStats();
   }, [fetchStats]);
 
-  // Fetch stock list when debounced search changes or page changes
+  // Fetch stock list when debounced search changes, page changes, or status filter changes
   useEffect(() => {
-    fetchStockList(debouncedSearch, currentPage);
-  }, [debouncedSearch, currentPage, fetchStockList]);
+    fetchStockList(debouncedSearch, currentPage, statusFilter || undefined);
+  }, [debouncedSearch, currentPage, statusFilter, fetchStockList]);
 
-  // Reset to page 1 when search changes
+  // Reset to page 1 when search or status filter changes
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch]);
+  }, [debouncedSearch, statusFilter]);
 
   // Format currency (if stock value is provided)
   const formatCurrency = (value: number): string => {
@@ -386,8 +388,8 @@ export default function DashboardPage() {
                 <p className="text-sm text-gray-600 mt-1">Search products by name or barcode</p>
               </div>
 
-              {/* Search Input */}
-              <div className="px-4 md:px-6 py-4 border-b border-gray-200">
+              {/* Search Input and Status Filter */}
+              <div className="px-4 md:px-6 py-4 border-b border-gray-200 space-y-4">
                 <input
                   type="text"
                   placeholder="Search by product name or barcode..."
@@ -395,6 +397,61 @@ export default function DashboardPage() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
                 />
+                
+                {/* Status Filter */}
+                <div className="flex flex-wrap gap-2">
+                  <label className="text-sm font-medium text-gray-700 self-center">Status:</label>
+                  <button
+                    onClick={() => setStatusFilter('')}
+                    className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
+                      statusFilter === ''
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    All
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter('inStock')}
+                    className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
+                      statusFilter === 'inStock'
+                        ? 'bg-green-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    In Stock
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter('lowStock')}
+                    className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
+                      statusFilter === 'lowStock'
+                        ? 'bg-yellow-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Low Stock
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter('outOfStock')}
+                    className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
+                      statusFilter === 'outOfStock'
+                        ? 'bg-red-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Out of Stock
+                  </button>
+                  <button
+                    onClick={() => setStatusFilter('nearExpiry')}
+                    className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
+                      statusFilter === 'nearExpiry'
+                        ? 'bg-orange-600 text-white'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    Near Expiry
+                  </button>
+                </div>
               </div>
 
               {/* Loading State */}
@@ -425,7 +482,7 @@ export default function DashboardPage() {
                   </div>
                   <p className="text-red-600 font-medium">{stockListError}</p>
                   <button
-                    onClick={() => fetchStockList(debouncedSearch, currentPage)}
+                    onClick={() => fetchStockList(debouncedSearch, currentPage, statusFilter || undefined)}
                     className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                   >
                     Retry
