@@ -12,6 +12,8 @@ export interface ProductInfo {
   remaining_quantity: number;
   unit?: string;
   min_stock?: number;
+  expire_date?: string; // Earliest expire date for OUT mode
+  near_expiry?: boolean; // Whether product is near expiry
 }
 
 export interface StockInRequest {
