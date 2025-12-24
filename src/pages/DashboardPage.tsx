@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { getDashboardStats, getStockList } from '../services/stock.api';
-import type { DashboardStats, StockProduct } from '../services/stock.api';
+import type { DashboardStats, StockProduct, PaginatedResponse } from '../services/stock.api';
 
 
 // Debounce hook for search input
@@ -30,6 +30,15 @@ export default function DashboardPage() {
   const [loadingStockList, setLoadingStockList] = useState<boolean>(false);
   const [stockListError, setStockListError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pagination, setPagination] = useState<{
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  } | null>(null);
 
   // Fetch dashboard stats
   const fetchStats = useCallback(async () => {
@@ -51,17 +60,23 @@ export default function DashboardPage() {
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   // Fetch stock list
-  const fetchStockList = useCallback(async (search: string) => {
+  const fetchStockList = useCallback(async (search: string, page: number = 1) => {
     setLoadingStockList(true);
     setStockListError(null);
 
     try {
-      const data = await getStockList(search.trim() || undefined);
-      setStockList(Array.isArray(data) ? data : []);
+      const response: PaginatedResponse<StockProduct> = await getStockList(
+        search.trim() || undefined,
+        page,
+        10
+      );
+      setStockList(response.data || []);
+      setPagination(response.pagination);
     } catch (err: any) {
       const errorMessage = err?.response?.data?.message || err?.message || 'An error occurred while fetching stock list';
       setStockListError(errorMessage);
       setStockList([]);
+      setPagination(null);
     } finally {
       setLoadingStockList(false);
     }
@@ -72,10 +87,15 @@ export default function DashboardPage() {
     fetchStats();
   }, [fetchStats]);
 
-  // Fetch stock list when debounced search changes
+  // Fetch stock list when debounced search changes or page changes
   useEffect(() => {
-    fetchStockList(debouncedSearch);
-  }, [debouncedSearch, fetchStockList]);
+    fetchStockList(debouncedSearch, currentPage);
+  }, [debouncedSearch, currentPage, fetchStockList]);
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch]);
 
   // Format currency (if stock value is provided)
   const formatCurrency = (value: number): string => {
@@ -309,6 +329,29 @@ export default function DashboardPage() {
               }
             />
 
+            {/* Total Stock Quantity */}
+            {stats.totalStockQuantity !== undefined && (
+              <StatCard
+                title="Total Stock Quantity"
+                value={stats.totalStockQuantity}
+                icon={
+                  <svg
+                    className="h-8 w-8"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                    />
+                  </svg>
+                }
+              />
+            )}
+
             {/* Total Stock Value (Optional) */}
             {stats.totalStockValue !== undefined && (
               <StatCard
@@ -382,7 +425,7 @@ export default function DashboardPage() {
                   </div>
                   <p className="text-red-600 font-medium">{stockListError}</p>
                   <button
-                    onClick={() => fetchStockList(debouncedSearch)}
+                    onClick={() => fetchStockList(debouncedSearch, currentPage)}
                     className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                   >
                     Retry
@@ -436,10 +479,86 @@ export default function DashboardPage() {
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
                           {stockList && stockList.map((product) => (
-                            <StockRow key={product.barcode} product={product} />
+                            <StockRow key={product.id} product={product} />
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                  )}
+
+                  {/* Pagination */}
+                  {pagination && (
+                    <div className="px-4 md:px-6 py-4 border-t border-gray-200">
+                      <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+                        {/* Page Info */}
+                        <div className="text-sm text-gray-600">
+                          Showing{' '}
+                          <span className="font-medium">
+                            {(pagination.page - 1) * pagination.limit + 1}
+                          </span>
+                          {' '}to{' '}
+                          <span className="font-medium">
+                            {Math.min(pagination.page * pagination.limit, pagination.total)}
+                          </span>
+                          {' '}of{' '}
+                          <span className="font-medium">{pagination.total.toLocaleString()}</span>
+                          {' '}results
+                        </div>
+
+                        {/* Pagination Controls */}
+                        <div className="flex items-center gap-2">
+                          {/* Previous Button */}
+                          <button
+                            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                            disabled={currentPage === 1 || loadingStockList}
+                            className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                          >
+                            Previous
+                          </button>
+
+                          {/* Page Numbers */}
+                          <div className="flex items-center gap-1">
+                            {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                              let pageNum: number;
+                              if (pagination.totalPages <= 5) {
+                                pageNum = i + 1;
+                              } else if (currentPage <= 3) {
+                                pageNum = i + 1;
+                              } else if (currentPage >= pagination.totalPages - 2) {
+                                pageNum = pagination.totalPages - 4 + i;
+                              } else {
+                                pageNum = currentPage - 2 + i;
+                              }
+
+                              return (
+                                <button
+                                  key={pageNum}
+                                  onClick={() => setCurrentPage(pageNum)}
+                                  disabled={loadingStockList}
+                                  className={`px-3 py-2 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition ${
+                                    currentPage === pageNum
+                                      ? 'bg-blue-600 text-white'
+                                      : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
+                                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                >
+                                  {pageNum}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Next Button */}
+                          <button
+                            onClick={() =>
+                              setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
+                            }
+                            disabled={currentPage === pagination.totalPages || loadingStockList}
+                            className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                          >
+                            Next
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </>

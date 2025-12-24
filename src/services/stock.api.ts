@@ -38,14 +38,29 @@ export interface DashboardStats {
   lowStockCount: number;
   nearExpiryCount: number;
   totalStockValue?: number;
+  totalStockQuantity?: number;
 }
 
 export interface StockProduct {
-  barcode: string;
+  id: string;
   name: string;
-  totalQuantity: number;
-  minStock: number;
+  barcode: string;
   unit: string;
+  minStock: number;
+  totalQuantity: number;
+  nearExpiry: boolean;
+}
+
+export interface PaginationInfo {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface PaginatedResponse<T> {
+  data: T[];
+  pagination: PaginationInfo;
 }
 
 export interface LotDetail {
@@ -117,22 +132,49 @@ export async function stockOut(items: StockOutRequest[]): Promise<{ success: boo
  * Get dashboard statistics
  */
 export async function getDashboardStats(): Promise<DashboardStats> {
-  const response = await apiClient.get<{ data: DashboardStats }>('/api/dashboard');
-  return response.data.data;
+  const response = await apiClient.get<DashboardStats | { data: DashboardStats }>('/api/dashboard');
+  // Handle different response structures
+  if ('data' in response.data && typeof response.data.data === 'object') {
+    return response.data.data;
+  }
+  return response.data as DashboardStats;
 }
 
 /**
- * Get stock list with optional search
+ * Get stock list with optional search and pagination
  */
-export async function getStockList(search?: string): Promise<StockProduct[]> {
-  const response = await apiClient.get<{ data: StockProduct[] }>('/api/products', {
-    params: search ? { search } : {},
+export async function getStockList(
+  search?: string,
+  page: number = 1,
+  limit: number = 20
+): Promise<PaginatedResponse<StockProduct>> {
+  const params: Record<string, string | number> = {
+    page,
+    limit,
+  };
+  if (search) {
+    params.search = search;
+  }
+
+  const response = await apiClient.get<PaginatedResponse<StockProduct>>('/api/products', {
+    params,
   });
+  
   // Handle different response structures
   if (Array.isArray(response.data)) {
-    return response.data;
+    // Fallback for non-paginated response
+    return {
+      data: response.data,
+      pagination: {
+        page: 1,
+        limit: response.data.length,
+        total: response.data.length,
+        totalPages: 1,
+      },
+    };
   }
-  return response.data?.data || [];
+  
+  return response.data;
 }
 
 /**
