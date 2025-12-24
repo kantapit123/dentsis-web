@@ -11,6 +11,8 @@ interface StockFormItem {
   lot?: string;
   expire_date?: string | null;
   remaining_quantity?: number;
+  min_stock?: number; // For low stock check
+  near_expiry?: boolean; // For near expiry check
 }
 
 interface StockFormListProps {
@@ -48,6 +50,14 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
   const [showAddProductModal, setShowAddProductModal] =
     useState<boolean>(false);
   const [pendingBarcode, setPendingBarcode] = useState<string>("");
+
+  // Confirm modal state for OUT mode
+  const [showConfirmModal, setShowConfirmModal] = useState<boolean>(false);
+  const [confirmModalType, setConfirmModalType] = useState<
+    "expired" | "nearExpiry" | "lowStock" | null
+  >(null);
+  const [confirmModalItems, setConfirmModalItems] = useState<StockFormItem[]>([]);
+  const [pendingSubmit, setPendingSubmit] = useState<boolean>(false);
 
   // Barcode scanning state
   const [scanning, setScanning] = useState<boolean>(false);
@@ -261,6 +271,9 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
           name: productInfo.name || "",
           quantity: currentQuantity,
           remaining_quantity: productInfo.remaining_quantity,
+          min_stock: productInfo.min_stock,
+          near_expiry: productInfo.near_expiry,
+          expire_date: productInfo.expire_date,
         };
 
         // For IN mode, set lot and expire_date if provided (optional)
@@ -447,6 +460,48 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
     []
   );
 
+  // Handle actual submit (after confirmation)
+  const handleActualSubmit = useCallback(async () => {
+    setSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      // Convert expire_date: if "ไม่มีวันหมดอายุ" is selected, set to null
+      const itemsToSubmit: StockFormItem[] = items.map((item, index) => {
+        const hasExpireDate = itemHasExpireDate.get(index);
+        return {
+          ...item,
+          expire_date: hasExpireDate === false ? null : item.expire_date,
+        };
+      });
+
+      await onSubmit(itemsToSubmit);
+
+      // Success: clear list
+      setItems([]);
+      setBarcodeInput("");
+      setCurrentQuantity(1);
+      setCurrentLot("");
+      setCurrentExpireDate("");
+      showToast(
+        mode === "OUT"
+          ? "All items used successfully!"
+          : "All items added successfully!"
+      );
+      setShowConfirmModal(false);
+      setConfirmModalType(null);
+      setConfirmModalItems([]);
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : "An error occurred");
+      setShowConfirmModal(false);
+      setConfirmModalType(null);
+      setConfirmModalItems([]);
+    } finally {
+      setSubmitting(false);
+      setPendingSubmit(false);
+    }
+  }, [items, onSubmit, mode, showToast, itemHasExpireDate]);
+
   // Handle confirm submit
   const handleConfirm = useCallback(async () => {
     if (items.length === 0) return;
@@ -531,44 +586,90 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
     // Clear validation errors if validation passes
     setLotValidationErrors(new Set());
     setExpireDateValidationErrors(new Set());
-    setSubmitting(true);
-    setSubmitError(null);
 
-    try {
-      // Convert expire_date: if "ไม่มีวันหมดอายุ" is selected, set to null
-      const itemsToSubmit: StockFormItem[] = items.map((item, index) => {
-        const hasExpireDate = itemHasExpireDate.get(index);
-        return {
-          ...item,
-          expire_date: hasExpireDate === false ? null : item.expire_date,
-        };
+    // For OUT mode, check for expired, near expiry, or low stock items
+    if (mode === "OUT") {
+      const expiredItems: StockFormItem[] = [];
+      const nearExpiryItems: StockFormItem[] = [];
+      const lowStockItems: StockFormItem[] = [];
+
+      items.forEach((item) => {
+        // Check expired (highest priority)
+        if (item.expire_date && checkExpired(item.expire_date)) {
+          expiredItems.push(item);
+        }
+        // Check near expiry
+        else if (item.near_expiry) {
+          nearExpiryItems.push(item);
+        }
+        // Check low stock
+        else if (checkLowStock(item)) {
+          lowStockItems.push(item);
+        }
       });
 
-      await onSubmit(itemsToSubmit);
-
-      // Success: clear list
-      setItems([]);
-      setBarcodeInput("");
-      setCurrentQuantity(1);
-      setCurrentLot("");
-      setCurrentExpireDate("");
-      showToast(
-        mode === "OUT"
-          ? "All items used successfully!"
-          : "All items added successfully!"
-      );
-    } catch (err) {
-      setSubmitError(err instanceof Error ? err.message : "An error occurred");
-    } finally {
-      setSubmitting(false);
+      // Show confirm modal based on priority: expired > near expiry > low stock
+      if (expiredItems.length > 0) {
+        setConfirmModalType("expired");
+        setConfirmModalItems(expiredItems);
+        setShowConfirmModal(true);
+        return;
+      } else if (nearExpiryItems.length > 0) {
+        setConfirmModalType("nearExpiry");
+        setConfirmModalItems(nearExpiryItems);
+        setShowConfirmModal(true);
+        return;
+      } else if (lowStockItems.length > 0) {
+        setConfirmModalType("lowStock");
+        setConfirmModalItems(lowStockItems);
+        setShowConfirmModal(true);
+        return;
+      }
     }
-  }, [items, onSubmit, mode, showToast]);
+
+    // No warnings, proceed with submit
+    setPendingSubmit(true);
+    await handleActualSubmit();
+  }, [items, mode, handleActualSubmit, itemHasExpireDate]);
 
   // Get today's date in YYYY-MM-DD format for date input min attribute
   const getTodayDate = () => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     return tomorrow.toISOString().split("T")[0];
+  };
+
+  // Helper functions (defined outside useCallback to avoid dependency issues)
+  const checkExpired = (expireDate?: string | null): boolean => {
+    if (!expireDate) return false;
+    try {
+      const expire = new Date(expireDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      expire.setHours(0, 0, 0, 0);
+      return expire < today;
+    } catch {
+      return false;
+    }
+  };
+
+  const checkLowStock = (item: StockFormItem): boolean => {
+    if (!item.remaining_quantity || !item.min_stock) return false;
+    return item.remaining_quantity <= item.min_stock;
+  };
+
+  const formatDate = (dateString?: string | null): string => {
+    if (!dateString) return "-";
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    } catch {
+      return dateString;
+    }
   };
 
   return (
@@ -934,6 +1035,177 @@ export default function StockFormList({ mode, onSubmit }: StockFormListProps) {
         }}
         onSuccess={handleProductCreated}
       />
+
+      {/* Confirm Modal for OUT mode */}
+      {showConfirmModal && confirmModalType && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+            <div
+              className={`p-6 ${
+                confirmModalType === "expired"
+                  ? "bg-red-50 border-b-2 border-red-500"
+                  : confirmModalType === "nearExpiry"
+                  ? "bg-orange-50 border-b-2 border-orange-500"
+                  : "bg-yellow-50 border-b-2 border-yellow-500"
+              }`}
+            >
+              <div className="flex items-start gap-4">
+                <div
+                  className={`flex-shrink-0 ${
+                    confirmModalType === "expired"
+                      ? "text-red-600"
+                      : confirmModalType === "nearExpiry"
+                      ? "text-orange-600"
+                      : "text-yellow-600"
+                  }`}
+                >
+                  {confirmModalType === "expired" ? (
+                    <svg
+                      className="w-8 h-8"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
+                    </svg>
+                  ) : confirmModalType === "nearExpiry" ? (
+                    <svg
+                      className="w-8 h-8"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  ) : (
+                    <svg
+                      className="w-8 h-8"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                      />
+                    </svg>
+                  )}
+                </div>
+                <div className="flex-1">
+                  <h3
+                    className={`text-lg font-semibold mb-2 ${
+                      confirmModalType === "expired"
+                        ? "text-red-900"
+                        : confirmModalType === "nearExpiry"
+                        ? "text-orange-900"
+                        : "text-yellow-900"
+                    }`}
+                  >
+                    {confirmModalType === "expired"
+                      ? "Product หมดอายุแล้ว (Critical)"
+                      : confirmModalType === "nearExpiry"
+                      ? "Product ใกล้หมดอายุ (Warning)"
+                      : "Product ใกล้หมด Stock"}
+                  </h3>
+                  <p
+                    className={`text-sm ${
+                      confirmModalType === "expired"
+                        ? "text-red-800"
+                        : confirmModalType === "nearExpiry"
+                        ? "text-orange-800"
+                        : "text-yellow-800"
+                    }`}
+                  >
+                    {confirmModalType === "expired"
+                      ? "ยืนยันว่าคุณต้องการเอาสินค้าที่หมดอายุแล้วออกจากสต็อก (ไม่ได้เอาไปใช้)"
+                      : confirmModalType === "nearExpiry"
+                      ? "กรุณาตรวจสอบวันหมดอายุอีกครั้งก่อนดำเนินการ"
+                      : "สินค้าใกล้หมด Stock แล้ว โปรดแจ้งเจ้าหน้าที่"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-6">
+              <div className="mb-4">
+                <p className="text-sm font-medium text-gray-700 mb-2">
+                  สินค้าที่ได้รับผลกระทบ:
+                </p>
+                <div className="space-y-2 max-h-48 overflow-y-auto">
+                  {confirmModalItems.map((item, index) => (
+                    <div
+                      key={index}
+                      className="bg-gray-50 rounded-lg p-3 border border-gray-200"
+                    >
+                      <div className="font-medium text-gray-900">
+                        {item.name}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1 font-mono">
+                        {item.barcode}
+                      </div>
+                      {item.expire_date && (
+                        <div className="text-xs text-gray-600 mt-1">
+                          Expire: {formatDate(item.expire_date)}
+                        </div>
+                      )}
+                      {item.remaining_quantity !== undefined && (
+                        <div className="text-xs text-gray-600 mt-1">
+                          Remaining: {item.remaining_quantity.toLocaleString()}
+                          {item.min_stock !== undefined && (
+                            <span className="ml-2">
+                              (Min: {item.min_stock.toLocaleString()})
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    setShowConfirmModal(false);
+                    setConfirmModalType(null);
+                    setConfirmModalItems([]);
+                    setPendingSubmit(false);
+                  }}
+                  disabled={submitting}
+                  className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  onClick={handleActualSubmit}
+                  disabled={submitting}
+                  className={`flex-1 px-4 py-2 rounded-lg text-white font-medium focus:outline-none focus:ring-2 focus:ring-offset-2 transition disabled:opacity-50 disabled:cursor-not-allowed ${
+                    confirmModalType === "expired"
+                      ? "bg-red-600 hover:bg-red-700 focus:ring-red-500"
+                      : confirmModalType === "nearExpiry"
+                      ? "bg-orange-600 hover:bg-orange-700 focus:ring-orange-500"
+                      : "bg-yellow-600 hover:bg-yellow-700 focus:ring-yellow-500"
+                  }`}
+                >
+                  {submitting ? "กำลังดำเนินการ..." : "ยืนยัน"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

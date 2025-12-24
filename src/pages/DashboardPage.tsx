@@ -1,7 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
-import { getDashboardStats, getStockList } from '../services/stock.api';
-import type { DashboardStats, StockProduct, PaginatedResponse } from '../services/stock.api';
-
+import { useState, useEffect, useCallback } from "react";
+import { getDashboardStats, getStockList } from "../services/stock.api";
+import type {
+  DashboardStats,
+  StockProduct,
+  PaginatedResponse,
+} from "../services/stock.api";
 
 // Debounce hook for search input
 function useDebounce<T>(value: T, delay: number): T {
@@ -29,9 +32,11 @@ export default function DashboardPage() {
   const [stockList, setStockList] = useState<StockProduct[]>([]);
   const [loadingStockList, setLoadingStockList] = useState<boolean>(false);
   const [stockListError, setStockListError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<'lowStock' | 'nearExpiry' | 'inStock' | 'outOfStock' | 'expired' | ''>('');
-  
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<
+    "lowStock" | "nearExpiry" | "inStock" | "outOfStock" | "expired" | ""
+  >("");
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pagination, setPagination] = useState<{
@@ -50,7 +55,10 @@ export default function DashboardPage() {
       const data = await getDashboardStats();
       setStats(data);
     } catch (err: any) {
-      const errorMessage = err?.response?.data?.message || err?.message || 'An error occurred while fetching dashboard stats';
+      const errorMessage =
+        err?.response?.data?.message ||
+        err?.message ||
+        "An error occurred while fetching dashboard stats";
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -61,28 +69,38 @@ export default function DashboardPage() {
   const debouncedSearch = useDebounce(searchQuery, 300);
 
   // Fetch stock list
-  const fetchStockList = useCallback(async (search: string, page: number = 1, status?: 'lowStock' | 'nearExpiry' | 'inStock' | 'outOfStock' | 'expired') => {
-    setLoadingStockList(true);
-    setStockListError(null);
+  const fetchStockList = useCallback(
+    async (
+      search: string,
+      page: number = 1,
+      status?: "lowStock" | "nearExpiry" | "inStock" | "outOfStock" | "expired"
+    ) => {
+      setLoadingStockList(true);
+      setStockListError(null);
 
-    try {
-      const response: PaginatedResponse<StockProduct> = await getStockList(
-        search.trim() || undefined,
-        page,
-        10,
-        status
-      );
-      setStockList(response.data || []);
-      setPagination(response.pagination);
-    } catch (err: any) {
-      const errorMessage = err?.response?.data?.message || err?.message || 'An error occurred while fetching stock list';
-      setStockListError(errorMessage);
-      setStockList([]);
-      setPagination(null);
-    } finally {
-      setLoadingStockList(false);
-    }
-  }, []);
+      try {
+        const response: PaginatedResponse<StockProduct> = await getStockList(
+          search.trim() || undefined,
+          page,
+          10,
+          status
+        );
+        setStockList(response.data || []);
+        setPagination(response.pagination);
+      } catch (err: any) {
+        const errorMessage =
+          err?.response?.data?.message ||
+          err?.message ||
+          "An error occurred while fetching stock list";
+        setStockListError(errorMessage);
+        setStockList([]);
+        setPagination(null);
+      } finally {
+        setLoadingStockList(false);
+      }
+    },
+    []
+  );
 
   // Fetch stats on mount
   useEffect(() => {
@@ -101,9 +119,9 @@ export default function DashboardPage() {
 
   // Format currency (if stock value is provided)
   const formatCurrency = (value: number): string => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
     }).format(value);
@@ -111,13 +129,13 @@ export default function DashboardPage() {
 
   // Format date for display
   const formatDate = (dateString?: string): string => {
-    if (!dateString) return '-';
+    if (!dateString) return "-";
     try {
       const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric',
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
       });
     } catch {
       return dateString;
@@ -148,29 +166,33 @@ export default function DashboardPage() {
 
     const getRowClasses = () => {
       if (expired) {
-        return 'bg-red-100 hover:bg-red-200';
+        return "bg-red-100 hover:bg-red-200";
       } else if (isOutOfStock) {
-        return 'bg-red-50 hover:bg-red-100';
+        return "bg-red-50 hover:bg-red-100";
       } else if (isLowStock) {
-        return 'bg-yellow-50 hover:bg-yellow-100';
+        return "bg-yellow-50 hover:bg-yellow-100";
       }
-      return 'hover:bg-gray-50';
+      return "hover:bg-gray-50";
     };
 
     const getQuantityClasses = () => {
       if (isOutOfStock) {
-        return 'text-red-600 font-semibold';
+        return "text-red-600 font-semibold";
       } else if (isLowStock) {
-        return 'text-yellow-600 font-semibold';
+        return "text-yellow-600 font-semibold";
       }
-      return 'text-gray-900';
+      return "text-gray-900";
     };
 
     return (
       <tr className={`transition ${getRowClasses()}`}>
         <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-          <div className="text-sm font-medium text-gray-900">{product.name || '-'}</div>
-          <div className="text-xs text-gray-500 mt-1 font-mono">{product.barcode || '-'}</div>
+          <div className="text-sm font-medium text-gray-900">
+            {product.name || "-"}
+          </div>
+          <div className="text-xs text-gray-500 mt-1 font-mono">
+            {product.barcode || "-"}
+          </div>
         </td>
         <td className="px-4 md:px-6 py-4 whitespace-nowrap">
           <div className={`text-sm ${getQuantityClasses()}`}>
@@ -178,7 +200,7 @@ export default function DashboardPage() {
           </div>
         </td>
         <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-          <div className="text-sm text-gray-600">{product.unit || '-'}</div>
+          <div className="text-sm text-gray-600">{product.unit || "-"}</div>
         </td>
         <td className="px-4 md:px-6 py-4 whitespace-nowrap">
           {expired ? (
@@ -200,7 +222,11 @@ export default function DashboardPage() {
           )}
         </td>
         <td className="px-4 md:px-6 py-4 whitespace-nowrap">
-          <div className={`text-sm ${expired ? 'text-red-600 font-semibold' : 'text-gray-600'}`}>
+          <div
+            className={`text-sm ${
+              expired ? "text-red-600 font-semibold" : "text-gray-600"
+            }`}
+          >
             {formatDate(product.expireDate)}
           </div>
         </td>
@@ -217,41 +243,53 @@ export default function DashboardPage() {
   }: {
     title: string;
     value: number | string;
-    alertType?: 'low' | 'warning' | 'normal';
+    alertType?: "low" | "warning" | "normal";
     icon: React.ReactNode;
   }) => {
     const getCardColors = () => {
       switch (alertType) {
-        case 'low':
-          return 'bg-red-50 border-red-300';
-        case 'warning':
-          return 'bg-yellow-50 border-yellow-300';
+        case "low":
+          return "bg-red-50 border-red-300";
+        case "warning":
+          return "bg-yellow-50 border-yellow-300";
         default:
-          return 'bg-white border-gray-200';
+          return "bg-white border-gray-200";
       }
     };
 
     const getTextColors = () => {
       switch (alertType) {
-        case 'low':
-          return 'text-red-600';
-        case 'warning':
-          return 'text-yellow-600';
+        case "low":
+          return "text-red-600";
+        case "warning":
+          return "text-yellow-600";
         default:
-          return 'text-gray-900';
+          return "text-gray-900";
       }
     };
 
     return (
-      <div className={`rounded-lg border-2 p-6 ${getCardColors()} transition hover:shadow-md`}>
+      <div
+        className={`rounded-lg border-2 p-6 ${getCardColors()} transition hover:shadow-md`}
+      >
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <p className="text-sm font-medium text-gray-600 mb-2">{title}</p>
             <p className={`text-3xl font-bold ${getTextColors()}`}>
-              {typeof value === 'number' && value != null ? value.toLocaleString() : value ?? '-'}
+              {typeof value === "number" && value != null
+                ? value.toLocaleString()
+                : value ?? "-"}
             </p>
           </div>
-          <div className={`${alertType === 'low' ? 'text-red-500' : alertType === 'warning' ? 'text-yellow-500' : 'text-gray-400'}`}>
+          <div
+            className={`${
+              alertType === "low"
+                ? "text-red-500"
+                : alertType === "warning"
+                ? "text-yellow-500"
+                : "text-gray-400"
+            }`}
+          >
             {icon}
           </div>
         </div>
@@ -332,7 +370,7 @@ export default function DashboardPage() {
             <StatCard
               title="Low Stock"
               value={stats.lowStockCount}
-              alertType={stats.lowStockCount > 0 ? 'low' : 'normal'}
+              alertType={stats.lowStockCount > 0 ? "low" : "normal"}
               icon={
                 <svg
                   className="h-8 w-8"
@@ -354,7 +392,7 @@ export default function DashboardPage() {
             <StatCard
               title="Near Expiry"
               value={stats.nearExpiryCount}
-              alertType={stats.nearExpiryCount > 0 ? 'warning' : 'normal'}
+              alertType={stats.nearExpiryCount > 0 ? "warning" : "normal"}
               icon={
                 <svg
                   className="h-8 w-8"
@@ -375,9 +413,9 @@ export default function DashboardPage() {
             {/* Expired Products Count */}
             {stats.expiredCount !== undefined && (
               <StatCard
-                title="Product ที่หมดอายุแล้ว"
+                title="Expired"
                 value={stats.expiredCount}
-                alertType={stats.expiredCount > 0 ? 'low' : 'normal'}
+                alertType={stats.expiredCount > 0 ? "low" : "normal"}
                 icon={
                   <svg
                     className="h-8 w-8"
@@ -426,8 +464,12 @@ export default function DashboardPage() {
           <div className="mt-8">
             <div className="bg-white rounded-lg shadow-sm overflow-hidden">
               <div className="px-4 md:px-6 py-4 border-b border-gray-200">
-                <h2 className="text-xl font-semibold text-gray-900">Stock List</h2>
-                <p className="text-sm text-gray-600 mt-1">Search products by name or barcode</p>
+                <h2 className="text-xl font-semibold text-gray-900">
+                  Stock List
+                </h2>
+                <p className="text-sm text-gray-600 mt-1">
+                  Search products by name or barcode
+                </p>
               </div>
 
               {/* Search Input and Status Filter */}
@@ -439,66 +481,68 @@ export default function DashboardPage() {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
                 />
-                
+
                 {/* Status Filter */}
                 <div className="flex flex-wrap gap-2">
-                  <label className="text-sm font-medium text-gray-700 self-center">Status:</label>
+                  <label className="text-sm font-medium text-gray-700 self-center">
+                    Status:
+                  </label>
                   <button
-                    onClick={() => setStatusFilter('')}
+                    onClick={() => setStatusFilter("")}
                     className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
-                      statusFilter === ''
-                        ? 'bg-blue-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      statusFilter === ""
+                        ? "bg-blue-600 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
                     All
                   </button>
                   <button
-                    onClick={() => setStatusFilter('inStock')}
+                    onClick={() => setStatusFilter("inStock")}
                     className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
-                      statusFilter === 'inStock'
-                        ? 'bg-green-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      statusFilter === "inStock"
+                        ? "bg-green-600 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
                     In Stock
                   </button>
                   <button
-                    onClick={() => setStatusFilter('lowStock')}
+                    onClick={() => setStatusFilter("lowStock")}
                     className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
-                      statusFilter === 'lowStock'
-                        ? 'bg-yellow-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      statusFilter === "lowStock"
+                        ? "bg-yellow-600 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
                     Low Stock
                   </button>
                   <button
-                    onClick={() => setStatusFilter('outOfStock')}
+                    onClick={() => setStatusFilter("outOfStock")}
                     className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
-                      statusFilter === 'outOfStock'
-                        ? 'bg-red-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      statusFilter === "outOfStock"
+                        ? "bg-red-600 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
                     Out of Stock
                   </button>
                   <button
-                    onClick={() => setStatusFilter('nearExpiry')}
+                    onClick={() => setStatusFilter("nearExpiry")}
                     className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
-                      statusFilter === 'nearExpiry'
-                        ? 'bg-orange-600 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      statusFilter === "nearExpiry"
+                        ? "bg-orange-600 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
                     Near Expiry
                   </button>
                   <button
-                    onClick={() => setStatusFilter('expired')}
+                    onClick={() => setStatusFilter("expired")}
                     className={`px-4 py-2 text-sm font-medium rounded-lg transition ${
-                      statusFilter === 'expired'
-                        ? 'bg-red-700 text-white'
-                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      statusFilter === "expired"
+                        ? "bg-red-700 text-white"
+                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                     }`}
                   >
                     Expired
@@ -534,7 +578,13 @@ export default function DashboardPage() {
                   </div>
                   <p className="text-red-600 font-medium">{stockListError}</p>
                   <button
-                    onClick={() => fetchStockList(debouncedSearch, currentPage, statusFilter || undefined)}
+                    onClick={() =>
+                      fetchStockList(
+                        debouncedSearch,
+                        currentPage,
+                        statusFilter || undefined
+                      )
+                    }
                     className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
                   >
                     Retry
@@ -562,9 +612,13 @@ export default function DashboardPage() {
                           />
                         </svg>
                       </div>
-                      <p className="text-gray-600 font-medium">No products found</p>
+                      <p className="text-gray-600 font-medium">
+                        No products found
+                      </p>
                       {searchQuery && (
-                        <p className="text-gray-500 text-sm mt-1">Try a different search term</p>
+                        <p className="text-gray-500 text-sm mt-1">
+                          Try a different search term
+                        </p>
                       )}
                     </div>
                   ) : (
@@ -590,9 +644,10 @@ export default function DashboardPage() {
                           </tr>
                         </thead>
                         <tbody className="bg-white divide-y divide-gray-200">
-                          {stockList && stockList.map((product) => (
-                            <StockRow key={product.id} product={product} />
-                          ))}
+                          {stockList &&
+                            stockList.map((product) => (
+                              <StockRow key={product.id} product={product} />
+                            ))}
                         </tbody>
                       </table>
                     </div>
@@ -604,24 +659,19 @@ export default function DashboardPage() {
                       <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
                         {/* Page Info */}
                         <div className="text-sm text-gray-600">
-                          Showing{' '}
                           <span className="font-medium">
-                            {(pagination.page - 1) * pagination.limit + 1}
-                          </span>
-                          {' '}to{' '}
-                          <span className="font-medium">
-                            {Math.min(pagination.page * pagination.limit, pagination.total)}
-                          </span>
-                          {' '}of{' '}
-                          <span className="font-medium">{pagination.total.toLocaleString()}</span>
-                          {' '}results
+                            {pagination.total.toLocaleString()}
+                          </span>{" "}
+                          results
                         </div>
 
                         {/* Pagination Controls */}
                         <div className="flex items-center gap-2">
                           {/* Previous Button */}
                           <button
-                            onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                            onClick={() =>
+                              setCurrentPage((prev) => Math.max(1, prev - 1))
+                            }
                             disabled={currentPage === 1 || loadingStockList}
                             className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition"
                           >
@@ -630,41 +680,52 @@ export default function DashboardPage() {
 
                           {/* Page Numbers */}
                           <div className="flex items-center gap-1">
-                            {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
-                              let pageNum: number;
-                              if (pagination.totalPages <= 5) {
-                                pageNum = i + 1;
-                              } else if (currentPage <= 3) {
-                                pageNum = i + 1;
-                              } else if (currentPage >= pagination.totalPages - 2) {
-                                pageNum = pagination.totalPages - 4 + i;
-                              } else {
-                                pageNum = currentPage - 2 + i;
-                              }
+                            {Array.from(
+                              { length: Math.min(5, pagination.totalPages) },
+                              (_, i) => {
+                                let pageNum: number;
+                                if (pagination.totalPages <= 5) {
+                                  pageNum = i + 1;
+                                } else if (currentPage <= 3) {
+                                  pageNum = i + 1;
+                                } else if (
+                                  currentPage >=
+                                  pagination.totalPages - 2
+                                ) {
+                                  pageNum = pagination.totalPages - 4 + i;
+                                } else {
+                                  pageNum = currentPage - 2 + i;
+                                }
 
-                              return (
-                                <button
-                                  key={pageNum}
-                                  onClick={() => setCurrentPage(pageNum)}
-                                  disabled={loadingStockList}
-                                  className={`px-3 py-2 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition ${
-                                    currentPage === pageNum
-                                      ? 'bg-blue-600 text-white'
-                                      : 'text-gray-700 bg-white border border-gray-300 hover:bg-gray-50'
-                                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                                >
-                                  {pageNum}
-                                </button>
-                              );
-                            })}
+                                return (
+                                  <button
+                                    key={pageNum}
+                                    onClick={() => setCurrentPage(pageNum)}
+                                    disabled={loadingStockList}
+                                    className={`px-3 py-2 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition ${
+                                      currentPage === pageNum
+                                        ? "bg-blue-600 text-white"
+                                        : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
+                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                  >
+                                    {pageNum}
+                                  </button>
+                                );
+                              }
+                            )}
                           </div>
 
                           {/* Next Button */}
                           <button
                             onClick={() =>
-                              setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))
+                              setCurrentPage((prev) =>
+                                Math.min(pagination.totalPages, prev + 1)
+                              )
                             }
-                            disabled={currentPage === pagination.totalPages || loadingStockList}
+                            disabled={
+                              currentPage === pagination.totalPages ||
+                              loadingStockList
+                            }
                             className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition"
                           >
                             Next
@@ -682,4 +743,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
