@@ -87,6 +87,13 @@ export default function DashboardPage() {
         );
         setStockList(response.data || []);
         setPagination(response.pagination);
+        
+        // Reset to page 1 if current page exceeds total pages or if totalPages is 0
+        if (response.pagination.totalPages > 0 && page > response.pagination.totalPages) {
+          setCurrentPage(1);
+        } else if (response.pagination.totalPages === 0 && page > 1) {
+          setCurrentPage(1);
+        }
       } catch (err: any) {
         const errorMessage =
           err?.response?.data?.message ||
@@ -672,48 +679,55 @@ export default function DashboardPage() {
                             onClick={() =>
                               setCurrentPage((prev) => Math.max(1, prev - 1))
                             }
-                            disabled={currentPage === 1 || loadingStockList}
+                            disabled={
+                              currentPage === 1 ||
+                              pagination.totalPages === 0 ||
+                              pagination.total === 0 ||
+                              loadingStockList
+                            }
                             className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition"
                           >
                             Previous
                           </button>
 
                           {/* Page Numbers */}
-                          <div className="flex items-center gap-1">
-                            {Array.from(
-                              { length: Math.min(5, pagination.totalPages) },
-                              (_, i) => {
-                                let pageNum: number;
-                                if (pagination.totalPages <= 5) {
-                                  pageNum = i + 1;
-                                } else if (currentPage <= 3) {
-                                  pageNum = i + 1;
-                                } else if (
-                                  currentPage >=
-                                  pagination.totalPages - 2
-                                ) {
-                                  pageNum = pagination.totalPages - 4 + i;
-                                } else {
-                                  pageNum = currentPage - 2 + i;
-                                }
+                          {pagination.totalPages > 0 && (
+                            <div className="flex items-center gap-1">
+                              {Array.from(
+                                { length: Math.min(5, pagination.totalPages) },
+                                (_, i) => {
+                                  let pageNum: number;
+                                  if (pagination.totalPages <= 5) {
+                                    pageNum = i + 1;
+                                  } else if (currentPage <= 3) {
+                                    pageNum = i + 1;
+                                  } else if (
+                                    currentPage >=
+                                    pagination.totalPages - 2
+                                  ) {
+                                    pageNum = pagination.totalPages - 4 + i;
+                                  } else {
+                                    pageNum = currentPage - 2 + i;
+                                  }
 
-                                return (
-                                  <button
-                                    key={pageNum}
-                                    onClick={() => setCurrentPage(pageNum)}
-                                    disabled={loadingStockList}
-                                    className={`px-3 py-2 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition ${
-                                      currentPage === pageNum
-                                        ? "bg-blue-600 text-white"
-                                        : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
-                                    } disabled:opacity-50 disabled:cursor-not-allowed`}
-                                  >
-                                    {pageNum}
-                                  </button>
-                                );
-                              }
-                            )}
-                          </div>
+                                  return (
+                                    <button
+                                      key={pageNum}
+                                      onClick={() => setCurrentPage(pageNum)}
+                                      disabled={loadingStockList}
+                                      className={`px-3 py-2 text-sm font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition ${
+                                        currentPage === pageNum
+                                          ? "bg-blue-600 text-white"
+                                          : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
+                                      } disabled:opacity-50 disabled:cursor-not-allowed`}
+                                    >
+                                      {pageNum}
+                                    </button>
+                                  );
+                                }
+                              )}
+                            </div>
+                          )}
 
                           {/* Next Button */}
                           <button
@@ -724,6 +738,8 @@ export default function DashboardPage() {
                             }
                             disabled={
                               currentPage === pagination.totalPages ||
+                              pagination.totalPages === 0 ||
+                              pagination.total === 0 ||
                               loadingStockList
                             }
                             className="px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition"
